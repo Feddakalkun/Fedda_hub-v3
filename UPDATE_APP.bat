@@ -21,7 +21,16 @@ if %errorlevel% neq 0 (
     )
 )
 
-git pull origin main
+:: If not a git repo (downloaded as ZIP), initialize it
+if not exist "%~dp0.git" (
+    echo No git repo found - initializing from GitHub...
+    git init
+    git remote add origin https://github.com/Feddakalkun/comfyuifeddafront.git
+    git fetch origin main
+    git reset --hard origin/main
+) else (
+    git pull origin main
+)
 
 echo.
 echo Running repair and installation script...

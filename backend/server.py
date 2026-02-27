@@ -299,6 +299,35 @@ async def cleanup_orphaned_files():
 
 
 
+@app.get("/api/lora/descriptions")
+async def get_lora_descriptions():
+    """
+    Scan LoRA folders for description.txt files.
+    Returns a map of { "lora_relative_path.safetensors": "description text" }
+    Keys match the format returned by ComfyUI's object_info API.
+    """
+    try:
+        loras_dir = Path(__file__).parent.parent / "ComfyUI" / "models" / "loras"
+        descriptions = {}
+
+        for desc_file in loras_dir.rglob("description.txt"):
+            text = desc_file.read_text(encoding="utf-8").strip()
+            if not text:
+                continue
+
+            # Find all .safetensors files in the same directory
+            for safetensor in desc_file.parent.glob("*.safetensors"):
+                # Key = relative path from loras dir, using backslashes (Windows ComfyUI format)
+                rel_path = str(safetensor.relative_to(loras_dir))
+                descriptions[rel_path] = text
+
+        return {"success": True, "descriptions": descriptions}
+
+    except Exception as e:
+        print(f"Error scanning LoRA descriptions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     print("🎤 Audio Transcription Server starting on port 8000...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

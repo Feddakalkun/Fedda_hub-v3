@@ -39,6 +39,70 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
     // Gallery Toggle State
     const [showGallery, setShowGallery] = useState(true);
 
+    // Dual Person Mode
+    const [dualPersonMode, setDualPersonMode] = useState(false);
+    interface PersonConfig {
+        lora: string;
+        strength: number;
+        description: string;
+        label: string;
+    }
+    const [personA, setPersonA] = useState<PersonConfig>({ lora: '', strength: 0.95, description: '', label: 'man' });
+    const [personB, setPersonB] = useState<PersonConfig>({ lora: '', strength: 0.95, description: '', label: 'woman' });
+    const [showPersonALoraList, setShowPersonALoraList] = useState(false);
+    const [showPersonBLoraList, setShowPersonBLoraList] = useState(false);
+    const [personALoraSearch, setPersonALoraSearch] = useState('');
+    const [personBLoraSearch, setPersonBLoraSearch] = useState('');
+
+    // Prompt Enhancer State
+    const [isEnhancing, setIsEnhancing] = useState(false);
+    const [loraDescriptions, setLoraDescriptions] = useState<Record<string, string>>({});
+
+    const selectPersonALora = (lora: string) => {
+        const desc = loraDescriptions[lora] || '';
+        setPersonA(prev => ({ ...prev, lora, description: prev.description || desc }));
+        setPersonALoraSearch('');
+        setShowPersonALoraList(false);
+    };
+
+    const selectPersonBLora = (lora: string) => {
+        const desc = loraDescriptions[lora] || '';
+        setPersonB(prev => ({ ...prev, lora, description: prev.description || desc }));
+        setPersonBLoraSearch('');
+        setShowPersonBLoraList(false);
+    };
+
+    const enhancePrompt = async () => {
+        if (!prompt.trim() || isEnhancing) return;
+        setIsEnhancing(true);
+        try {
+            const models = await ollamaService.getModels();
+            const model = models.find(m => m.name.includes('qwen') || m.name.includes('goonsai'))?.name || models[0]?.name;
+            if (!model) {
+                alert('No Ollama model available for prompt enhancement');
+                return;
+            }
+
+            const personContext = dualPersonMode
+                ? `\nThe image contains two people. Person A: ${personA.description || personA.label}. Person B: ${personB.description || personB.label}.`
+                : '';
+
+            const system = `You are a prompt enhancer for AI image generation with Z-Image Turbo (a Flux-based model). Take the user's short description and expand it into a detailed, photorealistic prompt. Include realistic lighting, setting details, camera angle, skin texture, clothing details, atmosphere. Keep it under 150 words. Output ONLY the enhanced prompt text, nothing else. No quotes, no labels, no explanations.${personContext}`;
+
+            const enhanced = await ollamaService.generate(model, prompt, system);
+            if (enhanced) {
+                setPrompt(enhanced);
+            }
+
+            // Free VRAM for ComfyUI
+            await ollamaService.unloadModel(model);
+        } catch (err) {
+            console.error('Prompt enhancement failed:', err);
+        } finally {
+            setIsEnhancing(false);
+        }
+    };
+
     // Model Download State
     const [isDownloadingModels, setIsDownloadingModels] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState('');
@@ -79,6 +143,19 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                 setAvailableLoras(loras);
                 if (styles && styles.length > 0) {
                     setAvailableStyles(styles);
+                }
+
+                // Load LoRA descriptions for auto-fill
+                try {
+                    const descResp = await fetch('/api/lora/descriptions');
+                    if (descResp.ok) {
+                        const descData = await descResp.json();
+                        if (descData.descriptions) {
+                            setLoraDescriptions(descData.descriptions);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not load LoRA descriptions:', e);
                 }
             } catch (err) {
                 console.error("Failed to load initial data", err);
@@ -139,12 +216,30 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                     return;
                 }
                 const statusMap: Record<string, string> = {
-                    '22': 'Downloading Models (this may take a while). Watch your terminal for progress...',
-                    '28': 'Downloading AI Models from HuggingFace (first time only, may take 5-10 minutes)...',
+                    // Single workflow nodes
+                    '22': 'Downloading Models (this may take a while)...',
+                    '28': 'Downloading AI Models from HuggingFace (first time only)...',
                     '3': 'Generating Image (Sampling)...',
                     '126': 'Loading LoRAs...',
                     '10': 'Saving Image...',
-                    '15': 'Applying Flux Guidance...'
+                    '15': 'Applying Flux Guidance...',
+                    // Dual workflow nodes
+                    '46': 'Generating Image (Sampling)...',
+                    '125': 'Loading Person A LoRA...',
+                    '211': 'Loading Person B LoRA...',
+                    '142': 'Loading Z-Image Model...',
+                    '143': 'Loading CLIP...',
+                    '49': 'Loading Florence2 Model...',
+                    '53': 'Detecting Person B...',
+                    '82': 'Loading SAM2 Model...',
+                    '83': 'Segmenting Person B...',
+                    '102': 'Fixing Person B Face...',
+                    '200': 'Detecting Person A...',
+                    '202': 'Segmenting Person A...',
+                    '209': 'Fixing Person A Face...',
+                    '145': 'Saving Final Image...',
+                    '124': 'Loading Person B LoRA (Detailer)...',
+                    '207': 'Loading Person A LoRA (Detailer)...',
                 };
                 setExecutionStatus(statusMap[nodeId] || `Processing (Node ${nodeId})...`);
             },
@@ -230,13 +325,20 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
 
         try {
             // Load workflow based on selected model
-            const workflowFile = modelId === 'flux' || modelId === 'qwen' ? 'z-image.json' : `${modelId}.json`;
+            const isDual = dualPersonMode && personA.lora && personB.lora;
+            let workflowFile: string;
+            if (isDual) {
+                workflowFile = 'z-image-dual.json';
+            } else if (modelId === 'flux' || modelId === 'qwen') {
+                workflowFile = 'z-image.json';
+            } else {
+                workflowFile = `${modelId}.json`;
+            }
             const response = await fetch(`/workflows/${workflowFile}`);
             if (!response.ok) throw new Error('Failed to load workflow template');
             const workflow = await response.json();
 
-            // 2. Modify Workflow Parameters
-            // Always generate a fresh random seed for variation (ignore UI seed field for now)
+            // Always generate a fresh random seed for variation
             const activeSeed = generateSeed();
 
             console.log('🚀 Preparing Generation:', {
@@ -244,81 +346,130 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                 prompt: prompt,
                 style: style,
                 seed: activeSeed,
-                loras: selectedLoras
+                dualPerson: isDual,
+                loras: isDual ? { personA, personB } : selectedLoras
             });
 
-            // Node 3: KSampler (Seed, Steps, CFG)
-            if (workflow["3"]) {
-                workflow["3"].inputs.seed = activeSeed;
-                workflow["3"].inputs.steps = steps;
-                workflow["3"].inputs.cfg = cfg;
-            }
-
-            // Node 33: Positive Prompt (Our Text Input)
-            if (workflow["33"]) {
-                workflow["33"].inputs.string = prompt;
-            }
-
-            // Node 34: Negative Prompt
-            if (workflow["34"]) {
-                workflow["34"].inputs.string = negativePrompt;
-            }
-
-            // Node 30: Dimensions
-            if (workflow["30"]) {
+            if (isDual) {
+                // === DUAL PERSON WORKFLOW (z-image-dual.json) ===
                 const [w, h] = dimensions.split('x').map(Number);
-                workflow["30"].inputs.width = w;
-                workflow["30"].inputs.height = h;
-            }
 
-            // Node 31: Style (CSV Loader)
-            if (workflow["31"]) {
-                workflow["31"].inputs.styles = style;
-                workflow["31"].inputs.csv_file_path = "styles.csv";
-            }
+                // KSampler
+                workflow["46"].inputs.seed = activeSeed;
+                workflow["46"].inputs.steps = steps;
+                workflow["46"].inputs.cfg = cfg;
 
-            // Node 126: Multiple LoRAs (Power Lora Loader)
-            if (workflow["126"]) {
-                // Clear existing lora inputs just in case
-                // workflow["126"].inputs = { ...workflow["126"].inputs }; // (Optional deep copy if needed)
+                // Dimensions
+                workflow["19"].inputs.width = w;
+                workflow["19"].inputs.height = h;
 
-                // Remove default lora_1 if it exists in JSON                // Apply selected LoRAs
-                if (selectedLoras.length > 0) {
-                    selectedLoras.slice(0, 5).forEach((l, index) => {
-                        workflow["126"].inputs[`lora_${index + 1}`] = {
-                            on: true,
-                            lora: l.name,
-                            strength: l.strength
-                        };
-                    });
+                // Prompt
+                workflow["146"].inputs.wildcard_text = prompt;
+                workflow["146"].inputs.populated_text = prompt;
+                workflow["146"].inputs.seed = activeSeed;
+                workflow["118"].inputs.text = "";
+                workflow["121"].inputs.text_0 = prompt;
+                workflow["122"].inputs.text_0 = prompt;
+
+                // Negative
+                workflow["6"].inputs.text = negativePrompt;
+
+                // Person A LoRA (main gen chain + detailer)
+                workflow["125"].inputs.lora_name = personA.lora;
+                workflow["125"].inputs.strength_model = personA.strength;
+                workflow["125"].inputs.strength_clip = personA.strength;
+                workflow["207"].inputs.lora_name = personA.lora;
+                workflow["207"].inputs.strength_model = personA.strength;
+                workflow["207"].inputs.strength_clip = personA.strength;
+
+                // Person B LoRA (main gen chain + detailer)
+                workflow["211"].inputs.lora_name = personB.lora;
+                workflow["211"].inputs.strength_model = personB.strength;
+                workflow["211"].inputs.strength_clip = personB.strength;
+                workflow["124"].inputs.lora_name = personB.lora;
+                workflow["124"].inputs.strength_model = personB.strength;
+                workflow["124"].inputs.strength_clip = personB.strength;
+
+                // Person A detailer description + label
+                workflow["208"].inputs.text = personA.description + ", detailed skin pores, 8k uhd";
+                workflow["200"].inputs.text_input = personA.label;
+                workflow["200"].inputs.seed = generateSeed();
+
+                // Person B detailer description + label
+                workflow["119"].inputs.text = personB.description + ", detailed skin pores, 8k uhd";
+                workflow["53"].inputs.text_input = personB.label;
+                workflow["53"].inputs.seed = generateSeed();
+
+                // Detailer seeds
+                workflow["102"].inputs.seed = generateSeed();
+                workflow["209"].inputs.seed = generateSeed();
+
+                // Save prefix
+                const now = new Date();
+                const dateFolder = now.toISOString().split('T')[0];
+                workflow["145"].inputs.filename_prefix = `z-image-dual/${dateFolder}/${now.getTime()}_`;
+                workflow["147"].inputs.filename_prefix = "delete/pre_dual";
+
+            } else {
+                // === SINGLE PERSON WORKFLOW (z-image.json) ===
+
+                // Node 3: KSampler (Seed, Steps, CFG)
+                if (workflow["3"]) {
+                    workflow["3"].inputs.seed = activeSeed;
+                    workflow["3"].inputs.steps = steps;
+                    workflow["3"].inputs.cfg = cfg;
                 }
-            }
 
-            // --- 6. FACE DETAILER LOGIC (Fix Resolution & Toggle) ---
-            if (workflow["181"]) {
-                // Fix gray bar issue: Update FaceDetailer resolution to match generation size
-                const [w, h] = dimensions.split('x').map(Number);
-                const maxDim = Math.max(w, h);
-                workflow["181"].inputs.guide_size = maxDim;
-                workflow["181"].inputs.max_size = maxDim;
+                // Node 33: Positive Prompt
+                if (workflow["33"]) {
+                    workflow["33"].inputs.string = prompt;
+                }
 
-                // Also ensure force_inpaint is mostly false to avoid hallucinations usually
-            }
+                // Node 34: Negative Prompt
+                if (workflow["34"]) {
+                    workflow["34"].inputs.string = negativePrompt;
+                }
 
-            // Node 9 (Save Image) usually takes input from Node 181 (FaceDetailer).
-            // Node 181 (FaceDetailer) takes input from Node 8 (VAEDecode).
-            // IF disable FaceDetailer -> Wire Node 9 directly to Node 8.
-            if (!useFaceDetailer && workflow["9"] && workflow["181"]) {
-                const now = new Date();
-                const dateFolder = now.toISOString().split('T')[0]; // YYYY-MM-DD
-                workflow["9"].inputs.filename_prefix = `${modelId}/${dateFolder}/${now.getTime()}_`;
-            }
+                // Node 30: Dimensions
+                if (workflow["30"]) {
+                    const [w, h] = dimensions.split('x').map(Number);
+                    workflow["30"].inputs.width = w;
+                    workflow["30"].inputs.height = h;
+                }
 
-            // Node 9: SaveImage - Use date-based folder organization
-            if (workflow["9"]) {
-                const now = new Date();
-                const dateFolder = now.toISOString().split('T')[0]; // YYYY-MM-DD
-                workflow["9"].inputs.filename_prefix = `${modelId}/${dateFolder}/${now.getTime()}_`;
+                // Node 31: Style (CSV Loader)
+                if (workflow["31"]) {
+                    workflow["31"].inputs.styles = style;
+                    workflow["31"].inputs.csv_file_path = "styles.csv";
+                }
+
+                // Node 126: Multiple LoRAs (Power Lora Loader)
+                if (workflow["126"]) {
+                    if (selectedLoras.length > 0) {
+                        selectedLoras.slice(0, 5).forEach((l, index) => {
+                            workflow["126"].inputs[`lora_${index + 1}`] = {
+                                on: true,
+                                lora: l.name,
+                                strength: l.strength
+                            };
+                        });
+                    }
+                }
+
+                // Face Detailer resolution fix
+                if (workflow["181"]) {
+                    const [w, h] = dimensions.split('x').map(Number);
+                    const maxDim = Math.max(w, h);
+                    workflow["181"].inputs.guide_size = maxDim;
+                    workflow["181"].inputs.max_size = maxDim;
+                }
+
+                // Node 9: SaveImage - date-based folder
+                if (workflow["9"]) {
+                    const now = new Date();
+                    const dateFolder = now.toISOString().split('T')[0];
+                    workflow["9"].inputs.filename_prefix = `${modelId}/${dateFolder}/${now.getTime()}_`;
+                }
             }
 
             console.log('📝 Modified Workflow sent to ComfyUI:', workflow);
@@ -441,88 +592,9 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-center mb-3">
-                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                            Prompt
-                        </label>
-                        <div className="flex gap-2">
-                            {/* Scan Image Button */}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-6 px-2 text-xs hover:bg-white/10 ${isDescribing ? 'text-white animate-pulse' : 'text-slate-400 hover:text-white'}`}
-                                onClick={() => setShowScanModal(true)}
-                                disabled={isDescribing || isEnhancing}
-                            >
-                                {isDescribing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Eye className="w-3 h-3 mr-1" />}
-                                {isDescribing ? 'Analyzing...' : 'Scan Image'}
-                            </Button>
-                            <input
-                                type="file"
-                                id="image-upload-trigger"
-                                className="hidden"
-                                accept="image/*"
-                                onChange={(e) => {
-                                    if (e.target.files?.[0]) processImage(e.target.files[0]);
-                                }}
-                            />
-
-                            {/* Expand Prompt Button */}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-6 px-2 text-xs hover:bg-white/10 ${isEnhancing ? 'text-white animate-pulse' : 'text-slate-400 hover:text-white'}`}
-                                onClick={handleEnhancePrompt}
-                                disabled={isEnhancing || !prompt.trim()}
-                            >
-                                {isEnhancing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                                {isEnhancing ? 'Expanding...' : 'Expand Prompt'}
-                            </Button>
-
-                            {/* Download Models Button */}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-6 px-2 text-xs hover:bg-white/10 ${isDownloadingModels ? 'text-white animate-pulse' : 'text-slate-400 hover:text-white'}`}
-                                onClick={async () => {
-                                    setIsDownloadingModels(true);
-                                    try {
-                                        const models = ['user-v4/joycaption-beta:latest', 'goonsai/qwen2.5-3B-goonsai-nsfw-100k:latest'];
-                                        for (const model of models) {
-                                            setDownloadProgress(`Downloading ${model.split('/')[1]}...`);
-                                            await ollamaService.pullModel(model, (progress) => {
-                                                if (progress.status === 'downloading' && progress.completed && progress.total) {
-                                                    const pct = Math.round((progress.completed / progress.total) * 100);
-                                                    setDownloadProgress(`${model.split('/')[1]}: ${pct}%`);
-                                                }
-                                            });
-                                        }
-                                        setDownloadProgress('Models ready!');
-                                        setTimeout(() => setDownloadProgress(''), 2000);
-                                    } catch (err) {
-                                        console.error('Download failed:', err);
-                                        setDownloadProgress('Download failed');
-                                        setTimeout(() => setDownloadProgress(''), 3000);
-                                    } finally {
-                                        setIsDownloadingModels(false);
-                                    }
-                                }}
-                                disabled={isDownloadingModels}
-                            >
-                                {isDownloadingModels ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                                {isDownloadingModels ? downloadProgress || 'Downloading...' : 'Fetch AI Models'}
-                            </Button>
-
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs text-slate-500 hover:text-white"
-                                onClick={() => setShowGallery(!showGallery)}
-                            >
-                                {showGallery ? 'Hide Gallery' : 'Show Gallery'}
-                            </Button>
-                        </div>
-                    </div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+                        Prompt
+                    </label>
 
                     <textarea
                         value={prompt}
@@ -537,10 +609,23 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                         placeholder={`Describe what you want to create... (Ctrl + Enter to generate)\nOr Drag & Drop an Image here to Capture`}
                     />
 
-                    {/* System Monitor removed - moved to Sidebar */}   <p className="text-xs text-slate-500 mt-2 flex items-center gap-2">
-                        <Eye className="w-3 h-3" />
-                        <span>Tip: Drag an image directly into the box above to auto-generate a detailed prompt</span>
-                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-slate-500 flex items-center gap-2">
+                            <Eye className="w-3 h-3" />
+                            <span>Tip: Drag an image to auto-generate a prompt</span>
+                        </p>
+                        <button
+                            onClick={enhancePrompt}
+                            disabled={isEnhancing || !prompt.trim()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-600/80 to-blue-600/80 text-white hover:from-purple-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                        >
+                            {isEnhancing ? (
+                                <><Loader2 className="w-3 h-3 animate-spin" /> Enhancing...</>
+                            ) : (
+                                <><Sparkles className="w-3 h-3" /> Enhance Prompt</>
+                            )}
+                        </button>
+                    </div>
 
                     {/* Scan Image Modal */}
                     {showScanModal && (
@@ -642,7 +727,110 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                                     />
                                 </button>
                             </div>
-                            {/* ... Partial keeps existing items ... */}
+                            {/* Dual Person Mode Toggle */}
+                            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                                <label className="text-xs text-slate-400 uppercase tracking-wider">
+                                    Dual Person Mode
+                                </label>
+                                <button
+                                    onClick={() => setDualPersonMode(!dualPersonMode)}
+                                    className={`w-12 h-6 rounded-full transition-colors duration-200 flex items-center px-1 ${dualPersonMode ? 'bg-purple-600' : 'bg-slate-700'}`}
+                                >
+                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform duration-200 ${dualPersonMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+
+                            {/* Dual Person Cards */}
+                            {dualPersonMode && (
+                                <div className="space-y-4 border-b border-white/5 pb-4">
+                                    {/* Person A */}
+                                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4 space-y-3">
+                                        <label className="block text-xs font-bold text-purple-300 uppercase tracking-wider">Person A</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={personA.lora ? personA.lora : personALoraSearch}
+                                                onChange={(e) => { setPersonALoraSearch(e.target.value); setPersonA({...personA, lora: ''}); setShowPersonALoraList(true); }}
+                                                onFocus={() => setShowPersonALoraList(true)}
+                                                onBlur={() => setTimeout(() => setShowPersonALoraList(false), 200)}
+                                                placeholder="Select LoRA..."
+                                                className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                                            />
+                                            {personA.lora && (
+                                                <button onClick={() => setPersonA({...personA, lora: ''})} className="absolute right-2 top-2 text-slate-500 hover:text-red-400">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {showPersonALoraList && (
+                                                <div className="absolute z-50 w-full mt-1 bg-[#1a1a24] border border-white/10 rounded-xl shadow-2xl max-h-40 overflow-y-auto custom-scrollbar">
+                                                    {availableLoras.filter(l => l.toLowerCase().includes(personALoraSearch.toLowerCase())).map((l, idx) => (
+                                                        <button key={idx} onClick={() => selectPersonALora(l)}
+                                                            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors">{l}</button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs text-slate-500 w-8">Str</span>
+                                            <input type="range" min="0" max="2" step="0.05" value={personA.strength}
+                                                onChange={(e) => setPersonA({...personA, strength: parseFloat(e.target.value)})}
+                                                className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-400" />
+                                            <span className="text-xs text-slate-400 w-8 text-right">{personA.strength}</span>
+                                        </div>
+                                        <input type="text" value={personA.label} onChange={(e) => setPersonA({...personA, label: e.target.value})}
+                                            placeholder="Florence2 label (e.g. man)"
+                                            className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/30" />
+                                        <textarea value={personA.description} onChange={(e) => setPersonA({...personA, description: e.target.value})}
+                                            placeholder="Person A face description for detailer..."
+                                            className="w-full h-16 bg-[#0a0a0f] border border-white/10 rounded-lg p-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/30 resize-none" />
+                                    </div>
+
+                                    {/* Person B */}
+                                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 space-y-3">
+                                        <label className="block text-xs font-bold text-blue-300 uppercase tracking-wider">Person B</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={personB.lora ? personB.lora : personBLoraSearch}
+                                                onChange={(e) => { setPersonBLoraSearch(e.target.value); setPersonB({...personB, lora: ''}); setShowPersonBLoraList(true); }}
+                                                onFocus={() => setShowPersonBLoraList(true)}
+                                                onBlur={() => setTimeout(() => setShowPersonBLoraList(false), 200)}
+                                                placeholder="Select LoRA..."
+                                                className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                                            />
+                                            {personB.lora && (
+                                                <button onClick={() => setPersonB({...personB, lora: ''})} className="absolute right-2 top-2 text-slate-500 hover:text-red-400">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {showPersonBLoraList && (
+                                                <div className="absolute z-50 w-full mt-1 bg-[#1a1a24] border border-white/10 rounded-xl shadow-2xl max-h-40 overflow-y-auto custom-scrollbar">
+                                                    {availableLoras.filter(l => l.toLowerCase().includes(personBLoraSearch.toLowerCase())).map((l, idx) => (
+                                                        <button key={idx} onClick={() => selectPersonBLora(l)}
+                                                            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors">{l}</button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs text-slate-500 w-8">Str</span>
+                                            <input type="range" min="0" max="2" step="0.05" value={personB.strength}
+                                                onChange={(e) => setPersonB({...personB, strength: parseFloat(e.target.value)})}
+                                                className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-400" />
+                                            <span className="text-xs text-slate-400 w-8 text-right">{personB.strength}</span>
+                                        </div>
+                                        <input type="text" value={personB.label} onChange={(e) => setPersonB({...personB, label: e.target.value})}
+                                            placeholder="Florence2 label (e.g. woman)"
+                                            className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                                        <textarea value={personB.description} onChange={(e) => setPersonB({...personB, description: e.target.value})}
+                                            placeholder="Person B face description for detailer..."
+                                            className="w-full h-16 bg-[#0a0a0f] border border-white/10 rounded-lg p-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* LoRA Stack (hidden in dual mode) */}
+                            {!dualPersonMode && (
                             <div className="space-y-4 border-b border-white/5 pb-4">
                                 <label className="block text-xs text-slate-400 uppercase tracking-wider">
                                     LoRA Stack
@@ -724,6 +912,7 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                                     </div>
                                 )}
                             </div>
+                            )}
 
                             {/* Negative Prompt */}
                             <div>

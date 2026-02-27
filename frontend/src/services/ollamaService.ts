@@ -80,6 +80,29 @@ export const ollamaService = {
         }
     },
 
+    // Generate text using Ollama (non-streaming)
+    generate: async (model: string, prompt: string, system?: string): Promise<string> => {
+        try {
+            const response = await fetch('/ollama/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model,
+                    prompt,
+                    system,
+                    stream: false,
+                    options: { temperature: 0.7, num_predict: 512 }
+                }),
+            });
+            if (!response.ok) throw new Error('Ollama generate failed');
+            const data = await response.json();
+            return data.response?.trim() || '';
+        } catch (error) {
+            console.error('Ollama generate error:', error);
+            throw error;
+        }
+    },
+
     // Unload model from VRAM (free memory for ComfyUI)
     unloadModel: async (modelName: string) => {
         try {

@@ -65,7 +65,14 @@ function Download-File {
 function Extract-Zip {
     param([string]$ZipFile, [string]$DestDir)
     Write-Log "Extracting $(Split-Path $ZipFile -Leaf)..."
-    Expand-Archive -Path $ZipFile -DestinationPath $DestDir -Force
+    try {
+        Expand-Archive -Path $ZipFile -DestinationPath $DestDir -Force
+    }
+    catch {
+        Write-Log "Expand-Archive failed, using .NET fallback..."
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $DestDir)
+    }
 }
 
 # Pause helper for step-by-step review

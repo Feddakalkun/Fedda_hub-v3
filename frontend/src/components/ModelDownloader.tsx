@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Download, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
+import { Download, Loader2, AlertTriangle } from 'lucide-react';
 
 interface ModelInfo {
     id: string;
@@ -49,7 +49,7 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
 
     const handleDownloadAll = async () => {
         setIsDownloading(true);
-        const missing = modelStatus.filter(m => !m.exists);
+        const missing = modelStatus.filter(m => !m.exists || m.progress.status === 'error');
         for (const m of missing) {
             try {
                 await fetch(`http://localhost:8000/api/models/download?model_id=${m.id}&group=${modelGroup}`, { method: 'POST' });
@@ -59,9 +59,32 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
         }
     };
 
+    const handlePurge = async () => {
+        if (!confirm("Are you sure? This will delete existing model files to allow a fresh download.")) return;
+        try {
+            await fetch(`http://localhost:8000/api/models/purge?group=${modelGroup}`, { method: 'POST' });
+            await checkStatus();
+        } catch (e) {
+            console.error('Purge failed:', e);
+        }
+    };
+
     if (isLoading) return null;
+
+    const hasError = modelStatus.some(m => m.progress.status === 'error');
     const allInstalled = modelStatus.every(m => m.exists);
-    if (allInstalled) return null;
+
+    // If everything is fine, show a very discreet repair option or nothing
+    if (allInstalled && !isDownloading && !hasError) return (
+        <div className="mx-8 mt-4 flex justify-end">
+            <button
+                onClick={handlePurge}
+                className="text-[9px] text-slate-700 hover:text-slate-400 font-bold uppercase tracking-widest transition-colors flex items-center gap-2"
+            >
+                [ Verify & Repair Cache ]
+            </button>
+        </div>
+    );
 
     const totalDownloaded = modelStatus.reduce((acc, m) => acc + (m.progress.downloaded || 0), 0);
     const totalSize = modelStatus.reduce((acc, m) => acc + (m.progress.total || 0), 0);
@@ -69,18 +92,24 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
 
     return (
         <div className="mx-8 mt-6 bg-[#121218] border border-white/10 rounded-xl overflow-hidden animate-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center justify-between px-6 py-4">
+            <div className={`flex items-center justify-between px-6 py-4 ${hasError ? 'bg-red-950/5' : ''}`}>
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
                         {isDownloading ? (
                             <Loader2 className="w-5 h-5 text-white animate-spin" />
+                        ) : hasError ? (
+                            <AlertTriangle className="w-5 h-5 text-slate-500" />
                         ) : (
                             <Download className="w-5 h-5 text-white/60" />
                         )}
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold text-white uppercase tracking-tight">Required Models Missing</h3>
-                        <p className="text-[11px] text-slate-500 font-medium">Flux base models are required for generation (~19.4GB total)</p>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-tight">
+                            {hasError ? 'Download Corrupted' : 'Required Models Missing'}
+                        </h3>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                            {hasError ? 'Incomplete file detected. Purge and restart for a clean copy.' : 'Flux base models are required for generation (~19.4GB total)'}
+                        </p>
                     </div>
                 </div>
 
@@ -100,10 +129,10 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
                         </div>
                     ) : (
                         <button
-                            onClick={handleDownloadAll}
+                            onClick={hasError ? handlePurge : handleDownloadAll}
                             className="px-6 py-2.5 bg-white hover:bg-slate-200 text-black text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all active:scale-95"
                         >
-                            Download All Models
+                            {hasError ? 'Purge & Restart' : 'Download All Models'}
                         </button>
                     )}
                 </div>

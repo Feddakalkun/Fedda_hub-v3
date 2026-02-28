@@ -863,6 +863,25 @@ async def trigger_download(model_id: str, group: str = "z-image"):
     return {"success": True, "message": f"Download started for {model_id}"}
 
 
+@app.post("/api/models/purge")
+async def purge_models(group: str = "z-image"):
+    """Delete models in a group to allow clean redownload."""
+    if group not in REQUIRED_MODELS:
+        return {"success": False, "error": "Unknown group"}
+    
+    purged = []
+    for m in REQUIRED_MODELS[group]:
+        fpath = COMFY_MODELS_DIR / m['path']
+        if fpath.exists():
+            try:
+                fpath.unlink()
+                purged.append(m['id'])
+            except Exception as e:
+                print(f"Failed to delete {fpath}: {e}")
+                
+    return {"success": True, "purged": purged}
+
+
 if __name__ == "__main__":
     print("Audio Transcription Server starting on port 8000...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

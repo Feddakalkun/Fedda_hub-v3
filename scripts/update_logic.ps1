@@ -31,6 +31,7 @@ $StableDeps = @(
     "torchvision==0.20.1", 
     "torchaudio==2.5.1",
     "transformers>=4.48.2,<5.0.0", 
+    "tokenizers==0.20.3",
     "accelerate>=0.26.0",
     "bitsandbytes", 
     "soundfile"

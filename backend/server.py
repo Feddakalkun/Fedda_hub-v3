@@ -828,7 +828,7 @@ def start_download(model_info):
 
 @app.get("/api/models/status")
 async def get_models_status(group: str = "z-image"):
-    """Check which models are missing and return current download progress."""
+    """Check which models are missing and verify file sizes."""
     if group not in REQUIRED_MODELS:
         return {"success": False, "error": "Unknown model group"}
     
@@ -836,11 +836,22 @@ async def get_models_status(group: str = "z-image"):
     for m in REQUIRED_MODELS[group]:
         full_path = COMFY_MODELS_DIR / m['path']
         exists = full_path.exists()
+        
+        # Basic corruption check: if file exists but is < 1MB or much smaller than expected
+        is_corrupt = False
+        if exists:
+            fsize_gb = full_path.stat().st_size / (1024**3)
+            # If the file is less than 50% of its expected size, it's likely corrupt/incomplete
+            if fsize_gb < (m['size_gb'] * 0.8):
+                is_corrupt = True
+        
         current_prog = download_progress.get(m['id'], {"status": "idle", "downloaded": 0, "total": 0})
         
         results.append({
             **m,
-            "exists": exists,
+            "exists": exists and not is_corrupt,
+            "is_corrupt": is_corrupt,
+            "actual_size_gb": round(full_path.stat().st_size / (1024**3), 2) if exists else 0,
             "progress": current_prog
         })
     

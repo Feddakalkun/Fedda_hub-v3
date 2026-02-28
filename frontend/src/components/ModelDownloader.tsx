@@ -5,6 +5,8 @@ interface ModelInfo {
     id: string;
     name: string;
     exists: boolean;
+    is_corrupt?: boolean;
+    actual_size_gb?: number;
     size_gb: number;
     progress: {
         status: string;
@@ -72,10 +74,11 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
     if (isLoading) return null;
 
     const hasError = modelStatus.some(m => m.progress.status === 'error');
+    const hasCorrupt = modelStatus.some(m => m.is_corrupt);
     const allInstalled = modelStatus.every(m => m.exists);
 
     // If everything is fine, show a very discreet repair option or nothing
-    if (allInstalled && !isDownloading && !hasError) return (
+    if (allInstalled && !isDownloading && !hasError && !hasCorrupt) return (
         <div className="mx-8 mt-4 flex justify-end">
             <button
                 onClick={handlePurge}
@@ -90,14 +93,17 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
     const totalSize = modelStatus.reduce((acc, m) => acc + (m.progress.total || 0), 0);
     const percent = totalSize > 0 ? (totalDownloaded / totalSize) * 100 : 0;
 
+    const mainMessage = hasCorrupt ? 'Corrupted File Detected' : hasError ? 'Download Corrupted' : 'Required Models Missing';
+    const subMessage = hasCorrupt ? 'One or more models are incomplete. Purge and restart is required.' : hasError ? 'Incomplete file detected. Purge and restart for a clean copy.' : 'Flux base models are required for generation (~19.4GB total)';
+
     return (
         <div className="mx-8 mt-6 bg-[#121218] border border-white/10 rounded-xl overflow-hidden animate-in slide-in-from-top-2 duration-300">
-            <div className={`flex items-center justify-between px-6 py-4 ${hasError ? 'bg-red-950/5' : ''}`}>
+            <div className={`flex items-center justify-between px-6 py-4 ${(hasError || hasCorrupt) ? 'bg-red-950/5' : ''}`}>
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
                         {isDownloading ? (
                             <Loader2 className="w-5 h-5 text-white animate-spin" />
-                        ) : hasError ? (
+                        ) : (hasError || hasCorrupt) ? (
                             <AlertTriangle className="w-5 h-5 text-slate-500" />
                         ) : (
                             <Download className="w-5 h-5 text-white/60" />
@@ -105,10 +111,10 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
                     </div>
                     <div>
                         <h3 className="text-sm font-bold text-white uppercase tracking-tight">
-                            {hasError ? 'Download Corrupted' : 'Required Models Missing'}
+                            {mainMessage}
                         </h3>
                         <p className="text-[11px] text-slate-500 font-medium">
-                            {hasError ? 'Incomplete file detected. Purge and restart for a clean copy.' : 'Flux base models are required for generation (~19.4GB total)'}
+                            {subMessage}
                         </p>
                     </div>
                 </div>
@@ -129,10 +135,10 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
                         </div>
                     ) : (
                         <button
-                            onClick={hasError ? handlePurge : handleDownloadAll}
+                            onClick={(hasError || hasCorrupt) ? handlePurge : handleDownloadAll}
                             className="px-6 py-2.5 bg-white hover:bg-slate-200 text-black text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all active:scale-95"
                         >
-                            {hasError ? 'Purge & Restart' : 'Download All Models'}
+                            {(hasError || hasCorrupt) ? 'Purge & Restart' : 'Download All Models'}
                         </button>
                     )}
                 </div>

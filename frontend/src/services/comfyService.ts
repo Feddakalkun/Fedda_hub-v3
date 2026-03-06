@@ -154,10 +154,23 @@ class ComfyUIService {
 
     /**
      * Get available LoRAs from ComfyUI
-     * Checks multiple common node types to ensure we find the file list
+     * Tries /api/models/loras first, then falls back to object_info
      */
     async getLoras(): Promise<string[]> {
-        const nodeTypes = ['LoraLoader', 'LoraLoaderModelOnly', 'Power Lora Loader (rgthree)', 'CR Load LoRA'];
+        // Try the modern models API first (ComfyUI 0.3+)
+        try {
+            const response = await fetch(`${COMFY_API.BASE_URL}/api/models/loras`);
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    console.log(`Loaded ${data.length} LoRAs from /api/models/loras`);
+                    return data;
+                }
+            }
+        } catch { /* fall through */ }
+
+        // Fallback: check object_info for common node types
+        const nodeTypes = ['LoraLoader', 'LoraLoaderModelOnly', 'Power Lora Loader (rgthree)'];
 
         for (const type of nodeTypes) {
             try {
@@ -167,22 +180,21 @@ class ComfyUIService {
                 const data = await response.json();
                 const nodeData = data[type];
 
-                // Common paths for the lora list in ComfyUI object info
                 const loraList =
                     nodeData?.input?.required?.lora_name?.[0] ||
                     nodeData?.input?.required?.lora?.[0] ||
                     [];
 
                 if (loraList.length > 0) {
-                    console.log(`✅ Loaded ${loraList.length} LoRAs from ${type}`);
+                    console.log(`Loaded ${loraList.length} LoRAs from ${type}`);
                     return loraList;
                 }
-            } catch (err) {
+            } catch {
                 // Silently try next one
             }
         }
 
-        console.warn('⚠️ Could not find LoRA list from common nodes.');
+        console.warn('Could not find LoRA list from ComfyUI');
         return [];
     }
 

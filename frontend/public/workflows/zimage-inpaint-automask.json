@@ -1,34 +1,4 @@
 {
-  "28": {
-    "inputs": {
-      "download_links": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors unet\nhttps://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors clip\nhttps://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors vae z-image-vae.safetensors\nhttps://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors model_patches\nhttps://huggingface.co/jingheya/lotus-depth-g-v2-0-disparity/resolve/main/unet/diffusion_pytorch_model.safetensors unet lotus-depth-g-v2-0-disparity.safetensors\nhttps://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors vae",
-      "auto_download": true,
-      "max_concurrent_downloads": 3,
-      "max_download_speed_mbps": 0,
-      "enable_resume": true,
-      "validate_files": false,
-      "enable_notifications": true,
-      "auto_organize": false,
-      "hf_token": ""
-    },
-    "class_type": "HuggingFaceDownloader",
-    "_meta": {
-      "title": "🤗 HuggingFace Model Downloader Pro"
-    }
-  },
-  "29": {
-    "inputs": {
-      "text": "=== DOWNLOAD REPORT ===\nTotal files: 6\nSuccessful downloads: 0\nAlready existed: 6\nInterrupted: 0\nFailed: 0\nMax concurrent: 3\nSpeed limit: Unlimited\nResume enabled: True\nValidation enabled: False\nAuto-organize: False\n\nDetails:\n✓ z_image_turbo_bf16.safetensors: Already exists (11.46 GB)\n✓ qwen_3_4b.safetensors: Already exists (7.49 GB)\n✓ z-image-vae.safetensors: Already exists (319.77 MB)\n✓ Z-Image-Turbo-Fun-Controlnet-Union.safetensors: Already exists (2.89 GB)\n✓ lotus-depth-g-v2-0-disparity.safetensors: Already exists (3.23 GB)\n✓ vae-ft-mse-840000-ema-pruned.safetensors: Already exists (319.14 MB)",
-      "anything": [
-        "28",
-        0
-      ]
-    },
-    "class_type": "easy showAnything",
-    "_meta": {
-      "title": "Show Any"
-    }
-  },
   "154": {
     "inputs": {
       "samples": [

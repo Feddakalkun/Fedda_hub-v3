@@ -467,28 +467,5 @@
     "_meta": {
       "title": "Prompt"
     }
-  },
-  "148": {
-    "inputs": {
-      "download_links": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors unet\nhttps://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors clip\nhttps://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors vae z-image-vae.safetensors\nhttps://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors model_patches\nhttps://huggingface.co/jingheya/lotus-depth-g-v2-0-disparity/resolve/main/unet/diffusion_pytorch_model.safetensors unet lotus-depth-g-v2-0-disparity.safetensors\nhttps://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors vae",
-      "auto_download": true,
-      "max_concurrent_downloads": 3,
-      "max_download_speed_mbps": 0,
-      "enable_resume": true,
-      "validate_files": false,
-      "enable_notifications": true,
-      "auto_organize": false,
-      "hf_token": "",
-      "speak_and_recognation": {
-        "__value__": [
-          false,
-          true
-        ]
-      }
-    },
-    "class_type": "HuggingFaceDownloader",
-    "_meta": {
-      "title": "🤗 HuggingFace Model Downloader Pro"
-    }
   }
 }

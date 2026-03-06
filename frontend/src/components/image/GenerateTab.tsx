@@ -61,11 +61,11 @@ export const GenerateTab = ({ isGenerating, setIsGenerating }: GenerateTabProps)
             workflow["3"].inputs.steps = steps;
             workflow["3"].inputs.cfg = cfg;
 
-            // Node 33: Positive Prompt
-            workflow["33"].inputs.string = finalPrompt;
+            // Node 6: Positive Prompt (CLIPTextEncode)
+            workflow["6"].inputs.text = finalPrompt;
 
-            // Node 34: Negative Prompt
-            workflow["34"].inputs.string = negativePrompt;
+            // Node 7: Negative Prompt (CLIPTextEncode)
+            workflow["7"].inputs.text = negativePrompt;
 
             // Node 30: Dimensions
             const [w, h] = dimensions.split('x').map(Number);

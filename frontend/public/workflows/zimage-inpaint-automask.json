@@ -153,10 +153,7 @@
   },
   "161": {
     "inputs": {
-      "text": [
-        "200",
-        0
-      ],
+      "text": "",
       "clip": [
         "167",
         0
@@ -217,15 +214,6 @@
     "class_type": "LoadImage",
     "_meta": {
       "title": "IMAGE + MASK"
-    }
-  },
-  "165": {
-    "inputs": {
-      "string": "WOMAN WINK"
-    },
-    "class_type": "String Literal",
-    "_meta": {
-      "title": "String Literal"
     }
   },
   "166": {
@@ -310,10 +298,7 @@
   },
   "171": {
     "inputs": {
-      "text": [
-        "165",
-        0
-      ],
+      "text": "",
       "clip": [
         "167",
         0
@@ -361,15 +346,6 @@
     "class_type": "LayerMask: PersonMaskUltra",
     "_meta": {
       "title": "LayerMask: PersonMaskUltra(Advance)"
-    }
-  },
-  "200": {
-    "inputs": {
-      "string": "blurry, low quality, distorted"
-    },
-    "class_type": "String Literal",
-    "_meta": {
-      "title": "NEGATIVE PROMPT"
     }
   }
 }

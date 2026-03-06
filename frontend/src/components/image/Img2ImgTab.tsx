@@ -82,11 +82,11 @@ export const Img2ImgTab = ({ isGenerating, setIsGenerating }: Img2ImgTabProps) =
             workflow["49"].inputs.cfg = cfg;
             workflow["49"].inputs.denoise = denoise;
 
-            // Node 50: Positive Prompt
-            workflow["50"].inputs.string = finalPrompt;
+            // Node 42: Positive Prompt (CLIPTextEncode)
+            workflow["42"].inputs.text = finalPrompt;
 
-            // Node 38: Negative Prompt
-            workflow["38"].inputs.string = negativePrompt;
+            // Node 36: Negative Prompt (CLIPTextEncode)
+            workflow["36"].inputs.text = negativePrompt;
 
             // Node 52: LoadImage
             workflow["52"].inputs.image = uploaded.name;

@@ -90,14 +90,14 @@ export const InpaintTab = ({ isGenerating, setIsGenerating }: InpaintTabProps) =
             workflow["169"].inputs.cfg = cfg;
             workflow["169"].inputs.denoise = denoise;
 
-            // Node 165: Positive Prompt
-            workflow["165"].inputs.string = finalPrompt;
+            // Node 171: Positive Prompt (CLIPTextEncode)
+            workflow["171"].inputs.text = finalPrompt;
 
             // Node 164: LoadImage
             workflow["164"].inputs.image = uploaded.name;
 
-            // Node 200: Negative Prompt
-            workflow["200"].inputs.string = negativePrompt;
+            // Node 161: Negative Prompt (CLIPTextEncode)
+            workflow["161"].inputs.text = negativePrompt;
 
             // Node 173: PersonMaskUltra — mask regions
             workflow["173"].inputs.face = maskFace;

@@ -31,10 +31,7 @@
   },
   "36": {
     "inputs": {
-      "text": [
-        "38",
-        0
-      ],
+      "text": "",
       "clip": [
         "44",
         0
@@ -43,15 +40,6 @@
     "class_type": "CLIPTextEncode",
     "_meta": {
       "title": "CLIP Text Encode (Negative Prompt)"
-    }
-  },
-  "38": {
-    "inputs": {
-      "string": ""
-    },
-    "class_type": "String Literal",
-    "_meta": {
-      "title": "NEGATIVE PROMPT"
     }
   },
   "39": {
@@ -69,10 +57,7 @@
   },
   "42": {
     "inputs": {
-      "text": [
-        "50",
-        0
-      ],
+      "text": "",
       "clip": [
         "44",
         0
@@ -170,15 +155,6 @@
     "class_type": "KSampler",
     "_meta": {
       "title": "KSampler"
-    }
-  },
-  "50": {
-    "inputs": {
-      "string": ""
-    },
-    "class_type": "String Literal",
-    "_meta": {
-      "title": "POSITIVE PROMPT"
     }
   },
   "52": {

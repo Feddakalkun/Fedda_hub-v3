@@ -72,7 +72,6 @@ input/
 
 # Proprietary Downloaders
 download-*-zimage.bat
-download_loras.bat
 scripts/download_loras.py
 config/loras.json
 loras.json

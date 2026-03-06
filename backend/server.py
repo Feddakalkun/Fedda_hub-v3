@@ -916,16 +916,17 @@ async def get_models_status(group: str = "z-image"):
         full_path = COMFY_MODELS_DIR / m['path']
         exists = full_path.exists()
         
-        # Basic corruption check: if file exists but is < 1MB or much smaller than expected
+        # Basic corruption check: if file exists but much smaller than expected
+        # Skip check if the file is currently being downloaded
         is_corrupt = False
-        if exists:
+        current_prog = download_progress.get(m['id'], {"status": "idle", "downloaded": 0, "total": 0})
+        is_downloading = current_prog.get('status') == 'downloading'
+
+        if exists and not is_downloading:
             fsize_gb = full_path.stat().st_size / (1024**3)
-            # Custom thresholds: VAE is smaller, others are huge.
             threshold = 0.5 if m['id'] == 'vae' else 0.8
             if fsize_gb < (m['size_gb'] * threshold):
                 is_corrupt = True
-        
-        current_prog = download_progress.get(m['id'], {"status": "idle", "downloaded": 0, "total": 0})
         
         results.append({
             **m,

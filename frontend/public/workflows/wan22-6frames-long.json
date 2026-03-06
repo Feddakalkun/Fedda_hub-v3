@@ -112,29 +112,6 @@
       "title": "Video Combine 🎥🅥🅗🅢"
     }
   },
-  "152": {
-    "inputs": {
-      "download_links": "https://huggingface.co/comfyuistudio/wan22nsfw/resolve/main/WAN22-NSFW-I2V-HIGH.safetensors diffusion_models\nhttps://huggingface.co/comfyuistudio/wan22nsfw/resolve/main/WAN22-NSFW-I2V-LOW.safetensors diffusion_models\nhttps://huggingface.co/NSFW-API/NSFW-Wan-UMT5-XXL/resolve/main/nsfw_wan_umt5-xxl_fp8_scaled.safetensors clip\n\nhttps://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors vae\n\nhttps://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors clip_vision\n\n",
-      "auto_download": true,
-      "max_concurrent_downloads": 3,
-      "max_download_speed_mbps": 0,
-      "enable_resume": true,
-      "validate_files": false,
-      "enable_notifications": true,
-      "auto_organize": false,
-      "hf_token": "",
-      "speak_and_recognation": {
-        "__value__": [
-          false,
-          true
-        ]
-      }
-    },
-    "class_type": "HuggingFaceDownloader",
-    "_meta": {
-      "title": "🤗 HuggingFace Model Downloader Pro"
-    }
-  },
   "170": {
     "inputs": {
       "PowerLoraLoaderHeaderWidget": {

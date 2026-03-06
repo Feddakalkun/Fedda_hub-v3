@@ -66,6 +66,9 @@ output/
 temp/
 input/
 
+# Update marker (local timestamp, not for repo)
+.last_node_update
+
 # Lock files (keep package-lock.json for reproducibility)
 # Uncomment if you want to ignore:
 # package-lock.json

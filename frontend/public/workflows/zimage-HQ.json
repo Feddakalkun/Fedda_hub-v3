@@ -226,23 +226,6 @@
       "title": "Florence2 Coordinates"
     }
   },
-  "86": {
-    "inputs": {
-      "erode_dilate": 25,
-      "fill_holes": 25,
-      "remove_isolated_pixels": 8,
-      "smooth": 0,
-      "blur": 0,
-      "mask": [
-        "83",
-        0
-      ]
-    },
-    "class_type": "MaskFix+",
-    "_meta": {
-      "title": "Mask Fix"
-    }
-  },
   "102": {
     "inputs": {
       "guide_size": 768,
@@ -336,10 +319,10 @@
   },
   "107": {
     "inputs": {
-      "expand": 2,
+      "expand": 25,
       "tapered_corners": false,
       "mask": [
-        "86",
+        "83",
         0
       ]
     },

@@ -44,8 +44,6 @@ if (-not (Test-Path $ComfyDir)) {
 # ============================================================================
 # 1. CUSTOM NODES - Install missing / Update existing (from nodes.json)
 # ============================================================================
-Write-Host "`n[1/3] Syncing custom nodes from config/nodes.json..." -ForegroundColor Yellow
-
 $NodesConfigFile = Join-Path $RootPath "config\nodes.json"
 if (-not (Test-Path $NodesConfigFile)) {
     Write-Host "  [ERROR] config/nodes.json not found!" -ForegroundColor Red
@@ -58,74 +56,119 @@ if (-not (Test-Path $CustomNodesDir)) {
     New-Item -ItemType Directory -Path $CustomNodesDir -Force | Out-Null
 }
 
-$InstalledCount = 0
-$UpdatedCount = 0
-$FailedCount = 0
+# Smart update: only git-pull existing nodes once per week (or if forced)
+$NodeUpdateMarker = Join-Path $RootPath ".last_node_update"
+$ForceNodeUpdate = $env:FORCE_NODE_UPDATE -eq "1"
+$NeedNodeUpdate = $true
 
-foreach ($Node in $NodesConfig) {
-    # Skip local-only nodes
-    if ($Node.local -eq $true) {
-        Write-Host "  [$($Node.name)] Local node - skipped" -ForegroundColor Gray
-        continue
-    }
-
-    $NodeDir_Install = Join-Path $CustomNodesDir $Node.folder
-
-    if (-not (Test-Path $NodeDir_Install)) {
-        # Clone missing node
-        Write-Host "  [$($Node.name)] Installing..." -ForegroundColor White
-        try {
-            & $GitExe clone --depth 1 $Node.url "$NodeDir_Install" 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $InstalledCount++
-                Write-Host "  [$($Node.name)] Installed OK" -ForegroundColor Green
-
-                # Install requirements if present
-                $ReqFile = Join-Path $NodeDir_Install "requirements.txt"
-                if (Test-Path $ReqFile) {
-                    Write-Host "  [$($Node.name)] Installing dependencies..." -ForegroundColor Gray
-                    $ErrorActionPreference = "Continue"
-                    & $PyExe -m pip install -r "$ReqFile" --no-warn-script-location 2>&1 | Out-Null
-                    $ErrorActionPreference = "Stop"
-                }
-            } else {
-                Write-Host "  [$($Node.name)] Clone failed!" -ForegroundColor Red
-                $FailedCount++
-            }
-        }
-        catch {
-            Write-Host "  [$($Node.name)] Error: $_" -ForegroundColor Red
-            $FailedCount++
-        }
-    }
-    else {
-        # Update existing node
-        Write-Host "  [$($Node.name)] Updating..." -ForegroundColor Gray
-        try {
-            Set-Location $NodeDir_Install
-            & $GitExe pull 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "  [$($Node.name)] Git pull failed (non-fatal)" -ForegroundColor Yellow
-            }
-            $UpdatedCount++
-            Set-Location $RootPath
-        }
-        catch {
-            Write-Host "  [$($Node.name)] Update failed (non-fatal): $_" -ForegroundColor Yellow
-            Set-Location $RootPath
-        }
-
-        # Re-check requirements in case they changed
-        $ReqFile = Join-Path $NodeDir_Install "requirements.txt"
-        if (Test-Path $ReqFile) {
-            $ErrorActionPreference = "Continue"
-            & $PyExe -m pip install -r "$ReqFile" --no-warn-script-location 2>&1 | Out-Null
-            $ErrorActionPreference = "Stop"
-        }
+if (-not $ForceNodeUpdate -and (Test-Path $NodeUpdateMarker)) {
+    $LastUpdate = (Get-Item $NodeUpdateMarker).LastWriteTime
+    $DaysSince = ((Get-Date) - $LastUpdate).TotalDays
+    if ($DaysSince -lt 7) {
+        $NeedNodeUpdate = $false
+        $DaysLeft = [math]::Ceiling(7 - $DaysSince)
+        Write-Host "`n[1/3] Custom nodes up to date (next check in ${DaysLeft}d, use UPDATE_APP_FULL.bat to force)" -ForegroundColor Green
     }
 }
 
-Write-Host "`n  Summary: $InstalledCount installed, $UpdatedCount updated, $FailedCount failed" -ForegroundColor Cyan
+$InstalledCount = 0
+$UpdatedCount = 0
+$SkippedCount = 0
+$FailedCount = 0
+
+# Always check for missing nodes, even when skipping updates
+$HasMissing = $false
+foreach ($Node in $NodesConfig) {
+    if ($Node.local -eq $true) { continue }
+    $NodeDir_Install = Join-Path $CustomNodesDir $Node.folder
+    if (-not (Test-Path $NodeDir_Install)) { $HasMissing = $true; break }
+}
+
+if ($NeedNodeUpdate -or $HasMissing) {
+    if ($NeedNodeUpdate) {
+        Write-Host "`n[1/3] Syncing custom nodes from config/nodes.json..." -ForegroundColor Yellow
+    } else {
+        Write-Host "`n[1/3] Installing missing custom nodes..." -ForegroundColor Yellow
+    }
+
+    foreach ($Node in $NodesConfig) {
+        # Skip local-only nodes
+        if ($Node.local -eq $true) {
+            Write-Host "  [$($Node.name)] Local node - skipped" -ForegroundColor Gray
+            continue
+        }
+
+        $NodeDir_Install = Join-Path $CustomNodesDir $Node.folder
+
+        if (-not (Test-Path $NodeDir_Install)) {
+            # Clone missing node — always runs
+            Write-Host "  [$($Node.name)] Installing..." -ForegroundColor White
+            try {
+                & $GitExe clone --depth 1 $Node.url "$NodeDir_Install" 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $InstalledCount++
+                    Write-Host "  [$($Node.name)] Installed OK" -ForegroundColor Green
+
+                    # Install requirements if present
+                    $ReqFile = Join-Path $NodeDir_Install "requirements.txt"
+                    if (Test-Path $ReqFile) {
+                        Write-Host "  [$($Node.name)] Installing dependencies..." -ForegroundColor Gray
+                        $ErrorActionPreference = "Continue"
+                        & $PyExe -m pip install -r "$ReqFile" --no-warn-script-location 2>&1 | Out-Null
+                        $ErrorActionPreference = "Stop"
+                    }
+                } else {
+                    Write-Host "  [$($Node.name)] Clone failed!" -ForegroundColor Red
+                    $FailedCount++
+                }
+            }
+            catch {
+                Write-Host "  [$($Node.name)] Error: $_" -ForegroundColor Red
+                $FailedCount++
+            }
+        }
+        elseif ($NeedNodeUpdate) {
+            # Update existing node — only when weekly check is due
+            Write-Host "  [$($Node.name)] Updating..." -ForegroundColor Gray
+            try {
+                Set-Location $NodeDir_Install
+                & $GitExe pull 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host "  [$($Node.name)] Git pull failed (non-fatal)" -ForegroundColor Yellow
+                }
+                $UpdatedCount++
+                Set-Location $RootPath
+            }
+            catch {
+                Write-Host "  [$($Node.name)] Update failed (non-fatal): $_" -ForegroundColor Yellow
+                Set-Location $RootPath
+            }
+
+            # Re-check requirements in case they changed
+            $ReqFile = Join-Path $NodeDir_Install "requirements.txt"
+            if (Test-Path $ReqFile) {
+                $ErrorActionPreference = "Continue"
+                & $PyExe -m pip install -r "$ReqFile" --no-warn-script-location 2>&1 | Out-Null
+                $ErrorActionPreference = "Stop"
+            }
+        }
+        else {
+            $SkippedCount++
+        }
+    }
+
+    # Update the marker file timestamp
+    if ($NeedNodeUpdate) {
+        "Updated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $NodeUpdateMarker -Force
+    }
+
+    $Parts = @()
+    if ($InstalledCount -gt 0) { $Parts += "$InstalledCount installed" }
+    if ($UpdatedCount -gt 0)  { $Parts += "$UpdatedCount updated" }
+    if ($SkippedCount -gt 0)  { $Parts += "$SkippedCount up to date" }
+    if ($FailedCount -gt 0)   { $Parts += "$FailedCount failed" }
+    Write-Host "`n  Summary: $($Parts -join ', ')" -ForegroundColor Cyan
+}
 
 # ============================================================================
 # 2. FRONTEND - npm install

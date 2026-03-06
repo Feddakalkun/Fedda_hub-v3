@@ -796,6 +796,41 @@ REQUIRED_MODELS = {
             "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
             "path": "vae/z-image-vae.safetensors",
             "size_gb": 0.312
+        },
+        {
+            "id": "controlnet",
+            "name": "Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+            "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+            "path": "model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+            "size_gb": 2.89
+        },
+        {
+            "id": "depth",
+            "name": "lotus-depth-g-v2-0-disparity.safetensors",
+            "url": "https://huggingface.co/jingheya/lotus-depth-g-v2-0-disparity/resolve/main/unet/diffusion_pytorch_model.safetensors",
+            "path": "diffusion_models/lotus-depth-g-v2-0-disparity.safetensors",
+            "size_gb": 3.23
+        },
+        {
+            "id": "sd-vae",
+            "name": "vae-ft-mse-840000-ema-pruned.safetensors",
+            "url": "https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors",
+            "path": "vae/vae-ft-mse-840000-ema-pruned.safetensors",
+            "size_gb": 0.319
+        },
+        {
+            "id": "face-detect",
+            "name": "face_yolov8m.pt",
+            "url": "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt",
+            "path": "ultralytics/bbox/face_yolov8m.pt",
+            "size_gb": 0.052
+        },
+        {
+            "id": "sam",
+            "name": "sam_vit_b_01ec64.pth",
+            "url": "https://huggingface.co/scenario-labs/sam_vit/resolve/main/sam_vit_b_01ec64.pth",
+            "path": "sams/sam_vit_b_01ec64.pth",
+            "size_gb": 0.375
         }
     ]
 }
@@ -803,26 +838,70 @@ REQUIRED_MODELS = {
 download_progress = {} # { model_id: { downloaded: 0, total: 0, status: 'idle' } }
 
 def start_download(model_info):
+    """Download a model using curl (fast, resume-capable) with file-size progress tracking."""
+    import time
     model_id = model_info['id']
     target_path = COMFY_MODELS_DIR / model_info['path']
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    download_progress[model_id] = {"status": "downloading", "downloaded": 0, "total": 0, "name": model_info['name']}
-    
+
+    total_bytes = int(model_info.get('size_gb', 0) * 1024**3)
+    download_progress[model_id] = {"status": "downloading", "downloaded": 0, "total": total_bytes, "name": model_info['name']}
+
+    try:
+        curl_cmd = [
+            'curl', '-L', '-C', '-',
+            '-o', str(target_path),
+            '--connect-timeout', '30',
+            '--retry', '3',
+            '--retry-delay', '5',
+            '-S', '-s',
+            model_info['url']
+        ]
+
+        process = subprocess.Popen(curl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        # Poll file size for progress while curl runs
+        while process.poll() is None:
+            if target_path.exists():
+                download_progress[model_id]['downloaded'] = target_path.stat().st_size
+            time.sleep(1)
+
+        if process.returncode == 0 and target_path.exists():
+            final_size = target_path.stat().st_size
+            download_progress[model_id]['downloaded'] = final_size
+            download_progress[model_id]['total'] = final_size
+            download_progress[model_id]['status'] = "completed"
+            print(f"Download complete: {model_info['name']} ({final_size / (1024**3):.2f} GB)")
+        else:
+            stderr = process.stderr.read().decode().strip()
+            print(f"Download error for {model_id}: curl exit {process.returncode} - {stderr}")
+            download_progress[model_id]['status'] = "error"
+            download_progress[model_id]['error'] = stderr or f"curl exit code {process.returncode}"
+    except FileNotFoundError:
+        # curl not found, fall back to Python requests
+        print(f"curl not found, falling back to Python requests for {model_id}")
+        _download_with_requests(model_info)
+    except Exception as e:
+        print(f"Download error for {model_id}: {e}")
+        download_progress[model_id]['status'] = "error"
+        download_progress[model_id]['error'] = str(e)
+
+def _download_with_requests(model_info):
+    """Fallback download using Python requests if curl is unavailable."""
+    model_id = model_info['id']
+    target_path = COMFY_MODELS_DIR / model_info['path']
     try:
         response = requests.get(model_info['url'], stream=True, timeout=30)
         total_size = int(response.headers.get('content-length', 0))
         download_progress[model_id]['total'] = total_size
-        
         with open(target_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=1024*1024): # 1MB chunks
+            for chunk in response.iter_content(chunk_size=1024*1024):
                 if chunk:
                     f.write(chunk)
                     download_progress[model_id]['downloaded'] += len(chunk)
-        
         download_progress[model_id]['status'] = "completed"
     except Exception as e:
-        print(f"Download error for {model_id}: {e}")
+        print(f"Fallback download error for {model_id}: {e}")
         download_progress[model_id]['status'] = "error"
         download_progress[model_id]['error'] = str(e)
 

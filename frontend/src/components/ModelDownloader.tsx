@@ -83,7 +83,7 @@ export const ModelDownloader = ({ modelGroup = "z-image" }: ModelDownloaderProps
         ? `One or more base models are incomplete (UNET/CLIP/VAE). LoRAs are safe.`
         : hasError
             ? 'The connection was lost. Purge and restart for a clean copy.'
-            : 'Flux base models are required for generation (~19.4GB total)';
+            : 'Z-Image Turbo base models are required for generation (~26GB total)';
 
     // If everything is fine, show a very discreet repair option or nothing
     if (allInstalled && !isDownloading && !hasError && !hasCorrupt) return (

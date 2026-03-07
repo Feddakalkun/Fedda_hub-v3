@@ -236,7 +236,7 @@ class ComfyUIService {
         onStatus?: (data: any) => void;
         onProgress?: (node: string, value: number, max: number) => void;
         onExecuting?: (nodeId: string | null) => void;
-        onCompleted?: (promptId: string) => void;
+        onCompleted?: (promptId: string, output?: any) => void;
     }): () => void {
         this.ws = new WebSocket(`${COMFY_API.WS_URL}?clientId=${this.clientId}`);
 
@@ -258,7 +258,7 @@ class ComfyUIService {
                         break;
                     case 'executed':
                         if (data.data.prompt_id) {
-                            callbacks.onCompleted?.(data.data.prompt_id);
+                            callbacks.onCompleted?.(data.data.prompt_id, data.data.output);
                         }
                         break;
                 }

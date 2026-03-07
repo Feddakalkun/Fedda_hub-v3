@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Upload, X, Play, FileText, Copy, Check } from 'lucide-react';
+import { Upload, X, Play, FileText, Copy, Check, ChevronDown } from 'lucide-react';
+import { comfyService } from '../../services/comfyService';
 import { useComfyExecution } from '../../contexts/ComfyExecutionContext';
 import { useToast } from '../ui/Toast';
 
@@ -97,10 +98,14 @@ function parseWorkflow(workflow: Record<string, any>): ParsedMetadata {
             }
         }
 
-        // Dimensions
+        // Dimensions (only accept realistic image sizes)
         if (cls === 'EmptyLatentImage' || cls === 'EmptySD3LatentImage') {
-            result.width = result.width ?? inputs.width;
-            result.height = result.height ?? inputs.height;
+            const w = inputs.width;
+            const h = inputs.height;
+            if (typeof w === 'number' && typeof h === 'number' && w >= 64 && h >= 64) {
+                result.width = result.width ?? w;
+                result.height = result.height ?? h;
+            }
         }
 
         // Checkpoint
@@ -138,10 +143,20 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
     const [error, setError] = useState<string | null>(null);
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
+    // LoRA editing state
+    const [availableLoras, setAvailableLoras] = useState<string[]>([]);
+    const [loraOverrides, setLoraOverrides] = useState<{ name: string; strength: number }[]>([]);
+
+    // Fetch available LoRAs on mount
+    useEffect(() => {
+        comfyService.getLoras().then(setAvailableLoras).catch(() => {});
+    }, []);
+
     const processImageData = useCallback(async (arrayBuffer: ArrayBuffer, preview: string) => {
         setIsLoading(true);
         setError(null);
         setMetadata(null);
+        setLoraOverrides([]);
         setPreviewUrl(preview);
 
         try {
@@ -157,6 +172,10 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
             const workflow = JSON.parse(promptJson);
             const parsed = parseWorkflow(workflow);
             setMetadata(parsed);
+            // Initialize LoRA overrides from parsed metadata
+            if (parsed.loras && parsed.loras.length > 0) {
+                setLoraOverrides(parsed.loras.map(l => ({ ...l })));
+            }
         } catch (err: any) {
             console.error('Metadata parse error:', err);
             setError(err.message || 'Failed to read metadata from image');
@@ -230,6 +249,36 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
         lastLoadedUrl.current = null;
     };
 
+    // Apply LoRA overrides to workflow
+    const applyLoraOverrides = (workflow: Record<string, any>) => {
+        if (loraOverrides.length === 0) return;
+        let loraIdx = 0;
+        for (const [, node] of Object.entries(workflow)) {
+            const cls = (node as any).class_type as string;
+            if (cls?.includes('LoraLoader') && (node as any).inputs.lora_name) {
+                if (loraIdx < loraOverrides.length) {
+                    (node as any).inputs.lora_name = loraOverrides[loraIdx].name;
+                    (node as any).inputs.strength_model = loraOverrides[loraIdx].strength;
+                    if ((node as any).inputs.strength_clip !== undefined) {
+                        (node as any).inputs.strength_clip = loraOverrides[loraIdx].strength;
+                    }
+                    loraIdx++;
+                }
+            }
+            // Power Lora Loader
+            if (cls?.includes('Power Lora')) {
+                for (let i = 1; i <= 5; i++) {
+                    const l = (node as any).inputs[`lora_${i}`];
+                    if (l && typeof l === 'object' && l.on && l.lora && loraIdx < loraOverrides.length) {
+                        l.lora = loraOverrides[loraIdx].name;
+                        l.strength = loraOverrides[loraIdx].strength;
+                        loraIdx++;
+                    }
+                }
+            }
+        }
+    };
+
     const handleReproduce = async () => {
         if (!metadata?.rawWorkflow) {
             toast('No workflow data available to reproduce', 'error');
@@ -238,6 +287,7 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
         setIsGenerating(true);
         try {
             const workflow = JSON.parse(JSON.stringify(metadata.rawWorkflow));
+            applyLoraOverrides(workflow);
             await queueWorkflow(workflow);
             toast('Reproducing image with exact same settings!', 'success');
         } catch (err: any) {
@@ -255,6 +305,7 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
         setIsGenerating(true);
         try {
             const workflow = JSON.parse(JSON.stringify(metadata.rawWorkflow));
+            applyLoraOverrides(workflow);
             for (const [, node] of Object.entries(workflow)) {
                 const cls = (node as any).class_type as string;
                 if (cls?.includes('KSampler') || cls === 'SamplerCustom') {
@@ -279,6 +330,7 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
         try {
             for (let i = 0; i < 4; i++) {
                 const workflow = JSON.parse(JSON.stringify(metadata.rawWorkflow));
+                applyLoraOverrides(workflow);
                 for (const [, node] of Object.entries(workflow)) {
                     const cls = (node as any).class_type as string;
                     if (cls?.includes('KSampler') || cls === 'SamplerCustom') {
@@ -413,14 +465,45 @@ export const MetadataTab = ({ isGenerating, setIsGenerating, initialImageUrl, on
                             <MetaField label="Checkpoint" value={metadata.checkpoint} />
                         )}
 
-                        {metadata.loras && metadata.loras.length > 0 && (
+                        {loraOverrides.length > 0 && (
                             <div>
-                                <label className="block text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">LoRAs</label>
-                                <div className="space-y-1.5">
-                                    {metadata.loras.map((l, i) => (
-                                        <div key={i} className="flex items-center justify-between bg-[#0a0a0f] border border-white/5 rounded-lg px-3 py-2">
-                                            <span className="text-xs text-slate-300 truncate">{l.name}</span>
-                                            <span className="text-[10px] text-slate-500 ml-2 flex-shrink-0">{l.strength.toFixed(2)}</span>
+                                <label className="block text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">LoRAs (Editable)</label>
+                                <div className="space-y-2">
+                                    {loraOverrides.map((l, i) => (
+                                        <div key={i} className="bg-[#0a0a0f] border border-white/5 rounded-lg px-3 py-2.5 space-y-2">
+                                            <div className="relative">
+                                                <select
+                                                    value={l.name}
+                                                    onChange={(e) => {
+                                                        setLoraOverrides(prev => prev.map((lo, idx) => idx === i ? { ...lo, name: e.target.value } : lo));
+                                                    }}
+                                                    className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 appearance-none pr-6 focus:outline-none focus:ring-1 focus:ring-white/20 truncate"
+                                                >
+                                                    {/* Keep current value even if not in list */}
+                                                    {!availableLoras.includes(l.name) && (
+                                                        <option value={l.name}>{l.name}</option>
+                                                    )}
+                                                    {availableLoras.map(name => (
+                                                        <option key={name} value={name}>{name}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-slate-500 w-12">Str</span>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="2"
+                                                    step="0.05"
+                                                    value={l.strength}
+                                                    onChange={(e) => {
+                                                        setLoraOverrides(prev => prev.map((lo, idx) => idx === i ? { ...lo, strength: parseFloat(e.target.value) } : lo));
+                                                    }}
+                                                    className="flex-1 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                                                />
+                                                <span className="text-[10px] text-slate-400 w-8 text-right font-mono">{l.strength.toFixed(2)}</span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

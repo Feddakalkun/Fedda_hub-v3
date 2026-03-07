@@ -14,7 +14,7 @@ interface ImageGalleryProps {
 }
 
 export const ImageGallery = ({ generatedImages, setGeneratedImages, isGenerating, setIsGenerating, galleryKey, onSendToTab }: ImageGalleryProps) => {
-    const { state: execState, progress: execProgress, currentNodeName, lastCompletedPromptId, outputReadyCount } = useComfyExecution();
+    const { state: execState, progress: execProgress, currentNodeName, outputReadyCount, lastOutputImages } = useComfyExecution();
     const { toast } = useToast();
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -44,51 +44,31 @@ export const ImageGallery = ({ generatedImages, setGeneratedImages, isGenerating
         }
     }, [generatedImages, galleryKey]);
 
-    // Incrementally fetch images as each output node completes
+    // Add images directly from WebSocket 'executed' events (no history API needed)
     const knownFilenamesRef = useRef<Set<string>>(new Set());
-    const lastFetchedPromptRef = useRef<string | null>(null);
 
-    // Reset known filenames when a new prompt starts
+    // Reset known filenames when a new generation starts
     useEffect(() => {
-        if (execState === 'executing' && lastCompletedPromptId !== lastFetchedPromptRef.current) {
+        if (execState === 'executing') {
             knownFilenamesRef.current.clear();
         }
     }, [execState]);
 
-    // Fetch on every outputReadyCount change (each SaveImage node completion)
+    // Each time outputReadyCount bumps, lastOutputImages has fresh data from the event
     useEffect(() => {
-        if (outputReadyCount === 0) return;
-        if (!lastCompletedPromptId) return;
-        lastFetchedPromptRef.current = lastCompletedPromptId;
+        if (outputReadyCount === 0 || lastOutputImages.length === 0) return;
 
-        const fetchResults = async () => {
-            try {
-                await new Promise(r => setTimeout(r, 300));
-                const history = await comfyService.getHistory(lastCompletedPromptId);
-                const results = history[lastCompletedPromptId];
-                if (results?.outputs) {
-                    const newImages: string[] = [];
-                    Object.values(results.outputs).forEach((nodeOutputAny: any) => {
-                        if (nodeOutputAny.images) {
-                            nodeOutputAny.images.forEach((img: any) => {
-                                // Deduplicate by filename — only add images we haven't seen
-                                if (!knownFilenamesRef.current.has(img.filename)) {
-                                    knownFilenamesRef.current.add(img.filename);
-                                    const url = comfyService.getImageUrl(img.filename, img.subfolder, img.type);
-                                    newImages.push(`${url}&t=${Date.now()}`);
-                                }
-                            });
-                        }
-                    });
-                    if (newImages.length > 0) {
-                        setGeneratedImages(prev => [...newImages, ...prev]);
-                    }
-                }
-            } catch (err) {
-                console.error("Results fetch error:", err);
+        const newImages: string[] = [];
+        for (const img of lastOutputImages) {
+            if (!knownFilenamesRef.current.has(img.filename)) {
+                knownFilenamesRef.current.add(img.filename);
+                const url = comfyService.getImageUrl(img.filename, img.subfolder, img.type);
+                newImages.push(`${url}&t=${Date.now()}`);
             }
-        };
-        fetchResults();
+        }
+        if (newImages.length > 0) {
+            setGeneratedImages(prev => [...newImages, ...prev]);
+        }
     }, [outputReadyCount]);
 
     // Clear isGenerating when workflow finishes

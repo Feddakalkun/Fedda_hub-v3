@@ -23,6 +23,7 @@ interface ComfyExecutionContextType {
     completedNodes: number;
     lastCompletedPromptId: string | null;
     outputReadyCount: number; // increments on each 'executed' event (per output node)
+    lastOutputImages: { filename: string; subfolder: string; type: string }[]; // images from latest executed event
     // Queue a workflow: builds node map, sends to ComfyUI, returns prompt_id
     queueWorkflow: (workflow: Record<string, any>) => Promise<string>;
 }
@@ -72,6 +73,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
 
     const [lastCompletedPromptId, setLastCompletedPromptId] = useState<string | null>(null);
     const [outputReadyCount, setOutputReadyCount] = useState(0);
+    const [lastOutputImages, setLastOutputImages] = useState<{ filename: string; subfolder: string; type: string }[]>([]);
 
     const nodeMapRef = useRef<Record<string, { name: string; classType: string }>>({});
     const executedNodesRef = useRef<Set<string>>(new Set());
@@ -140,9 +142,13 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 setProgress(Math.round((value / max) * 100));
             },
 
-            onCompleted: (promptId) => {
+            onCompleted: (promptId, output) => {
                 activePromptIdRef.current = promptId;
                 setLastCompletedPromptId(promptId);
+                // Extract images directly from the executed event output
+                if (output?.images && Array.isArray(output.images)) {
+                    setLastOutputImages(output.images);
+                }
                 setOutputReadyCount(prev => prev + 1);
             },
 
@@ -166,6 +172,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
         executedNodesRef.current.clear();
         setCompletedNodes(0);
         setOutputReadyCount(0);
+        setLastOutputImages([]);
 
         // Reset state
         setState('executing');
@@ -217,6 +224,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             completedNodes,
             lastCompletedPromptId,
             outputReadyCount,
+            lastOutputImages,
             queueWorkflow,
         }}>
             {children}

@@ -88,11 +88,15 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
     const executedNodesRef = useRef<Set<string>>(new Set());
     const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const activePromptIdRef = useRef<string | null>(null);
+    const cancelledRef = useRef(false);
 
     // Connect WebSocket once on mount
     useEffect(() => {
         const disconnect = comfyService.connectWebSocket({
             onExecuting: (nodeId) => {
+                // Ignore WS messages after cancel
+                if (cancelledRef.current) return;
+
                 // Clear any pending done timer
                 if (doneTimerRef.current) {
                     clearTimeout(doneTimerRef.current);
@@ -148,10 +152,12 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             },
 
             onProgress: (_node, value, max) => {
+                if (cancelledRef.current) return;
                 setProgress(Math.round((value / max) * 100));
             },
 
             onCompleted: (promptId, output) => {
+                if (cancelledRef.current) return;
                 activePromptIdRef.current = promptId;
                 setLastCompletedPromptId(promptId);
                 // Accumulate images
@@ -182,6 +188,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
     // Cancel/interrupt the current execution
     const cancelExecution = useCallback(async () => {
         try {
+            cancelledRef.current = true;
             await comfyService.interrupt();
             // Clear any pending done timer
             if (doneTimerRef.current) {
@@ -204,6 +211,9 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
 
     // Queue workflow with node map building
     const queueWorkflow = useCallback(async (workflow: Record<string, any>): Promise<string> => {
+        // Reset cancelled flag so WS messages work again
+        cancelledRef.current = false;
+
         // Build node map from workflow
         const nodeMap = buildNodeMap(workflow);
         nodeMapRef.current = nodeMap;

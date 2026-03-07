@@ -1,7 +1,8 @@
 // Live ComfyUI Execution Status Bar
 // Shows under the header during workflow execution
+import { useEffect, useRef } from 'react';
 import { useComfyExecution } from '../contexts/ComfyExecutionContext';
-import { Loader2, Download, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Loader2, Download, CheckCircle2, AlertTriangle, XCircle, X } from 'lucide-react';
 
 export const ExecutionStatusBar = () => {
     const {
@@ -14,6 +15,20 @@ export const ExecutionStatusBar = () => {
         completedNodes,
         cancelExecution,
     } = useComfyExecution();
+
+    const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Auto-dismiss error state after 8 seconds
+    useEffect(() => {
+        if (state === 'error') {
+            errorTimerRef.current = setTimeout(() => {
+                cancelExecution(); // resets to idle
+            }, 8000);
+        }
+        return () => {
+            if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        };
+    }, [state, cancelExecution]);
 
     // Don't render when idle
     if (state === 'idle') return null;
@@ -35,6 +50,13 @@ export const ExecutionStatusBar = () => {
                         Install via ComfyUI Manager
                     </span>
                 )}
+                <button
+                    onClick={cancelExecution}
+                    className="ml-auto text-red-400/60 hover:text-red-300 transition-colors shrink-0"
+                    title="Dismiss"
+                >
+                    <X className="w-4 h-4" />
+                </button>
             </div>
         );
     }

@@ -1,6 +1,7 @@
-// Video Page — Lipsync + Scene Builder tabs with video preview
+// Video Page — Lipsync + Scene Builder with video preview
+// Tab switching controlled by sidebar (activeSubTab), not internal tabs
 import { useState, useEffect, useRef } from 'react';
-import { Film, Mic2, Clapperboard } from 'lucide-react';
+import { Film } from 'lucide-react';
 import { LipsyncTab } from '../components/video/LipsyncTab';
 import { SceneBuilderTab } from '../components/video/SceneBuilderTab';
 import { useComfyExecution } from '../contexts/ComfyExecutionContext';
@@ -11,8 +12,7 @@ interface VideoPageProps {
     modelLabel: string;
 }
 
-export const VideoPage = ({}: VideoPageProps) => {
-    const [activeTab, setActiveTab] = useState<'lipsync' | 'scene-builder'>('lipsync');
+export const VideoPage = ({ modelId }: VideoPageProps) => {
     const [videoUrls, setVideoUrls] = useState<string[]>([]);
     const [activeVideoIndex, setActiveVideoIndex] = useState(0);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -67,38 +67,13 @@ export const VideoPage = ({}: VideoPageProps) => {
 
     return (
         <div className="flex h-full overflow-hidden">
-            {/* LEFT: Controls */}
+            {/* LEFT: Controls — switched by sidebar sub-tab */}
             <div className="w-[380px] flex flex-col border-r border-white/5 bg-[#0d0d14]">
-                {/* Tab Bar */}
-                <div className="flex border-b border-white/5">
-                    <button
-                        onClick={() => setActiveTab('lipsync')}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
-                            activeTab === 'lipsync'
-                                ? 'text-white border-b-2 border-white bg-white/[0.03]'
-                                : 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent'
-                        }`}
-                    >
-                        <Mic2 className="w-3.5 h-3.5" /> Lipsync
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('scene-builder')}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
-                            activeTab === 'scene-builder'
-                                ? 'text-white border-b-2 border-white bg-white/[0.03]'
-                                : 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent'
-                        }`}
-                    >
-                        <Clapperboard className="w-3.5 h-3.5" /> Scene Builder
-                    </button>
-                </div>
-
-                {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
-                    <div style={{ display: activeTab === 'lipsync' ? undefined : 'none' }}>
+                    <div style={{ display: modelId === 'lipsync' ? undefined : 'none' }}>
                         <LipsyncTab />
                     </div>
-                    <div style={{ display: activeTab === 'scene-builder' ? undefined : 'none' }}>
+                    <div style={{ display: modelId === 'scene-builder' ? undefined : 'none' }}>
                         <SceneBuilderTab />
                     </div>
                 </div>

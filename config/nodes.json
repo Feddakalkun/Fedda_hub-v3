@@ -103,5 +103,11 @@
     "url": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git",
     "folder": "ComfyUI-Frame-Interpolation",
     "note": "RIFE VFI — frame interpolation for smooth video"
+  },
+  {
+    "name": "ComfyUI_essentials",
+    "url": "https://github.com/cubiq/ComfyUI_essentials.git",
+    "folder": "ComfyUI_essentials",
+    "note": "Text Concatenate, image utilities — used in z-image workflows"
   }
 ]

@@ -1,52 +1,252 @@
 @echo off
 setlocal EnableDelayedExpansion
-
-title ComfyFront - Universal Installer
 cd /d "%~dp0"
+title FEDDA Installer
 
+set "BASE_DIR=%~dp0"
+if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
+
+echo.
 echo ============================================================================
-echo                    FEDDAKALKUN - ULTIMATE FRONTEND
+echo   FEDDA INSTALLER
 echo ============================================================================
 echo.
-echo   This script will set up the entire ecosystem:
-echo.
-echo   1. ComfyUI (Generation Engine) + Custom Nodes
-echo   2. Dashboard (React Frontend + FastAPI Backend)
-echo   3. Ollama (AI Chat Engine)
-echo.
-echo   Embedded runtimes (installed locally, no system changes):
-echo     Python 3.11.9  ^|  Node.js 22.14.0  ^|  MinGit 2.43.0  ^|  Ollama 0.5.4
+echo   Scanning your system...
 echo.
 
-:: Admin Check
+:: ============================================================================
+:: SYSTEM SCAN
+:: ============================================================================
+
+:: GPU Check
+set "GPU_OK=0"
+set "GPU_NAME=Not detected"
+for /f "tokens=*" %%a in ('wmic path Win32_VideoController where "Name like '%%NVIDIA%%'" get Name /value 2^>nul ^| findstr "Name"') do (
+    set "%%a"
+    set "GPU_OK=1"
+)
+if "%GPU_OK%"=="1" (
+    echo   GPU:      %Name%
+) else (
+    echo   GPU:      No NVIDIA GPU found
+)
+
+:: VRAM via nvidia-smi
+set "VRAM_STR="
+nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits >nul 2>nul
+if %errorlevel% equ 0 (
+    for /f %%v in ('nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2^>nul') do (
+        set /a VRAM_GB=%%v / 1024
+        echo   VRAM:     !VRAM_GB! GB
+    )
+)
+
+:: Check for system Python
+set "HAS_PYTHON=0"
+set "PY_VERSION="
+where python >nul 2>nul
+if %errorlevel% equ 0 (
+    set "HAS_PYTHON=1"
+    for /f "tokens=*" %%v in ('python --version 2^>^&1') do set "PY_VERSION=%%v"
+)
+
+:: Check for system Git
+set "HAS_GIT=0"
+set "GIT_VERSION="
+where git >nul 2>nul
+if %errorlevel% equ 0 (
+    set "HAS_GIT=1"
+    for /f "tokens=*" %%v in ('git --version 2^>^&1') do set "GIT_VERSION=%%v"
+)
+
+:: Check for system Node
+set "HAS_NODE=0"
+set "NODE_VERSION="
+where node >nul 2>nul
+if %errorlevel% equ 0 (
+    set "HAS_NODE=1"
+    for /f "tokens=*" %%v in ('node --version 2^>^&1') do set "NODE_VERSION=%%v"
+)
+
+:: Check for system Ollama
+set "HAS_OLLAMA=0"
+where ollama >nul 2>nul
+if %errorlevel% equ 0 (
+    set "HAS_OLLAMA=1"
+)
+
+echo.
+echo   System Tools Found:
+if "%HAS_PYTHON%"=="1" (
+    echo     Python:   %PY_VERSION%
+) else (
+    echo     Python:   not installed
+)
+if "%HAS_GIT%"=="1" (
+    echo     Git:      %GIT_VERSION%
+) else (
+    echo     Git:      not installed
+)
+if "%HAS_NODE%"=="1" (
+    echo     Node.js:  %NODE_VERSION%
+) else (
+    echo     Node.js:  not installed
+)
+if "%HAS_OLLAMA%"=="1" (
+    echo     Ollama:   installed
+) else (
+    echo     Ollama:   not installed
+)
+
+:: ============================================================================
+:: CHECK IF ALREADY INSTALLED
+:: ============================================================================
+if exist "%BASE_DIR%\python_embeded\python.exe" (
+    echo.
+    echo   [NOTE] Full install already detected (python_embeded found^).
+    echo          Run UPDATE_APP.bat to update, or delete python_embeded to reinstall.
+    echo.
+    pause
+    exit /b 0
+)
+if exist "%BASE_DIR%\venv\Scripts\python.exe" (
+    echo.
+    echo   [NOTE] Lite install already detected (venv found^).
+    echo          Run UPDATE_APP.bat to update, or delete venv to reinstall.
+    echo.
+    pause
+    exit /b 0
+)
+
+:: ============================================================================
+:: NVIDIA CHECK
+:: ============================================================================
+if "%GPU_OK%"=="0" (
+    echo.
+    echo   ============================================================
+    echo   ERROR: No NVIDIA GPU detected!
+    echo   FEDDA requires an NVIDIA GPU with CUDA support.
+    echo   AMD and Intel GPUs are not supported.
+    echo   ============================================================
+    echo.
+    pause
+    exit /b 1
+)
+
+:: ============================================================================
+:: OFFER CHOICE
+:: ============================================================================
+echo.
+echo ============================================================================
+echo.
+echo   Choose installation type:
+echo.
+echo   [1] FULL INSTALL  (Recommended^)
+echo       Downloads Python, Node, Git, Ollama — everything included.
+echo       Nothing else needed. Fully portable.
+echo       ~15 GB total, takes longer.
+echo.
+
+if "%HAS_PYTHON%"=="1" if "%HAS_GIT%"=="1" if "%HAS_NODE%"=="1" (
+    echo   [2] LITE INSTALL  (Faster^)
+    echo       Uses your existing Python, Git, Node.
+    echo       Smaller download, faster install.
+    echo       Creates a venv for Python packages.
+    echo.
+    set "LITE_AVAILABLE=1"
+) else (
+    echo   [2] LITE INSTALL  (Unavailable — missing system tools^)
+    echo       Requires Python, Git, and Node.js installed on your system.
+    echo.
+    set "LITE_AVAILABLE=0"
+)
+
+echo ============================================================================
+echo.
+
+:ask_choice
+set "CHOICE="
+set /p "CHOICE=  Enter 1 or 2 (default: 1): "
+if "%CHOICE%"=="" set "CHOICE=1"
+
+if "%CHOICE%"=="1" goto :do_full
+if "%CHOICE%"=="2" goto :do_lite
+
+echo   Invalid choice. Enter 1 or 2.
+goto :ask_choice
+
+:: ============================================================================
+:: FULL INSTALL (Portable)
+:: ============================================================================
+:do_full
+echo.
+echo   Starting Full Install...
+echo.
+
+:: Request admin for portable install (needs to extract executables)
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo   Requesting Administrator privileges...
-    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs -Wait"
+    powershell -Command "Start-Process -FilePath '%~f0' -ArgumentList 'FULL' -Verb RunAs -Wait"
     exit /b
 )
 
-echo.
-echo [Universal Installer] Handing over to PowerShell core...
-echo.
+:: Handle re-entry after admin elevation
+if "%1"=="FULL" (
+    cd /d "%~dp0"
+    set "BASE_DIR=%~dp0"
+    if "!BASE_DIR:~-1!"=="\" set "BASE_DIR=!BASE_DIR:~0,-1!"
+)
 
-powershell -ExecutionPolicy Bypass -File "scripts\install.ps1"
+powershell -ExecutionPolicy Bypass -File "%BASE_DIR%\scripts\install.ps1"
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Installation failed! Check logs\install_full_log.txt for details.
+    echo   [ERROR] Installation failed! Check logs\install_full_log.txt
     echo.
-    echo Press any key to close...
-    pause >nul
+    pause
     exit /b %errorlevel%
 )
 
+goto :done
+
+:: ============================================================================
+:: LITE INSTALL (System tools + venv)
+:: ============================================================================
+:do_lite
+if "%LITE_AVAILABLE%"=="0" (
+    echo.
+    echo   Lite install requires Python, Git, and Node.js.
+    echo   Install the missing tools or choose Full Install.
+    echo.
+    goto :ask_choice
+)
+
+echo.
+echo   Starting Lite Install...
+echo.
+
+powershell -ExecutionPolicy Bypass -File "%BASE_DIR%\scripts\install_lite.ps1"
+
+if %errorlevel% neq 0 (
+    echo.
+    echo   [ERROR] Installation failed! Check logs\install_fast_log.txt
+    echo.
+    pause
+    exit /b %errorlevel%
+)
+
+goto :done
+
+:: ============================================================================
+:: DONE
+:: ============================================================================
+:done
 echo.
 echo ============================================================================
 echo   INSTALLATION COMPLETE!
 echo ============================================================================
 echo.
-echo   To start the system, run: run.bat
+echo   To start FEDDA, run:  RUN.bat
 echo.
-echo   Press any key to close...
-pause >nul
+pause

@@ -1,5 +1,5 @@
 ﻿# ============================================================================ 
-# FEDDAKALKUN ComfyUI - Ultimate Portable Installer
+# FEDDA Full Installer - Portable (Embedded Python/Node/Git/Ollama)
 # ============================================================================ 
 
 $ErrorActionPreference = "Stop"
@@ -88,7 +88,7 @@ function Pause-Step {
 }
 
 Write-Log "========================================="
-Write-Log " FEDDAKALKUN - Portable Installation"
+Write-Log " FEDDA - Full Portable Installation"
 Write-Log "========================================="
 
 # ============================================================================
@@ -96,7 +96,7 @@ Write-Log "========================================="
 # ============================================================================
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "  FEDDAKALKUN - Ultimate Frontend" -ForegroundColor Cyan
+Write-Host "  FEDDA - Full Install (Portable)" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -139,7 +139,7 @@ elseif ($IsCDrive) {
 }
 
 # --- Disclaimer ---
-Write-Host "  DISCLAIMER: This software is provided as-is by FEDDAKALKUN." -ForegroundColor Gray
+Write-Host "  DISCLAIMER: This software is provided as-is by FEDDA." -ForegroundColor Gray
 Write-Host "  It installs portable runtimes (Python, Node, Git) locally" -ForegroundColor Gray
 Write-Host "  in this folder only. It does NOT modify your system." -ForegroundColor Gray
 Write-Host ""
@@ -166,7 +166,7 @@ try {
         Write-Host "  This app requires an NVIDIA GPU with CUDA support." -ForegroundColor Red
         Write-Host "  AMD and Intel GPUs are not supported." -ForegroundColor Red
         Write-Host ""
-        Write-Host "  Contact FEDDAKALKUN for help: https://feddakalkun.com" -ForegroundColor Yellow
+        Write-Host "  Contact FEDDA for help: https://feddakalkun.com" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Press any key to exit..." -ForegroundColor Yellow
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -210,7 +210,7 @@ if ($FreeSpace_GB -lt 10) {
 }
 
 Write-Host ""
-Write-Host "  If something looks wrong, contact FEDDAKALKUN:" -ForegroundColor Gray
+Write-Host "  If something looks wrong, contact FEDDA:" -ForegroundColor Gray
 Write-Host "  https://feddakalkun.com" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
@@ -219,7 +219,7 @@ Write-Host ""
 # Ask user to confirm
 $Confirm = Read-Host "  Does this look correct? Press ENTER to install, or type N to cancel"
 if ($Confirm -eq "N" -or $Confirm -eq "n") {
-    Write-Host "`n  Installation cancelled. Contact FEDDAKALKUN for help." -ForegroundColor Yellow
+    Write-Host "`n  Installation cancelled. Contact FEDDA for help." -ForegroundColor Yellow
     exit 0
 }
 

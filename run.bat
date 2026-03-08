@@ -25,26 +25,54 @@ if "%1"==":svc_backend" (
 )
 
 :: ============================================================================
-:: MAIN LAUNCHER — Portable (uses embedded Python/Node/Git)
+:: DETECT MODE — portable (embedded) vs lite (venv + system tools)
+:: ============================================================================
+set "MODE="
+if exist "%BASE_DIR%\python_embeded\python.exe" (
+    set "MODE=portable"
+    set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
+    set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%BASE_DIR%\git\cmd;%BASE_DIR%\node_embeded;%PATH%"
+    set "COMFY_EXTRA_FLAGS=--windows-standalone-build"
+) else if exist "%BASE_DIR%\venv\Scripts\python.exe" (
+    set "MODE=lite"
+    set "PYTHON=%BASE_DIR%\venv\Scripts\python.exe"
+    set "COMFY_EXTRA_FLAGS="
+) else (
+    echo.
+    echo [ERROR] No Python environment found!
+    echo        Run INSTALL.bat or INSTALL-LITE.bat first.
+    echo.
+    pause
+    exit /b 1
+)
+
+:: ============================================================================
+:: MAIN LAUNCHER
 :: ============================================================================
 echo.
 echo ============================================================================
-echo   FEDDA LAUNCHER
+echo   FEDDA LAUNCHER  (%MODE% mode)
 echo ============================================================================
 echo.
 
-:: Setup embedded tools
-set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
-set "OLLAMA=%BASE_DIR%\ollama_embeded\ollama.exe"
-set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%BASE_DIR%\git\cmd;%BASE_DIR%\node_embeded;%PATH%"
-
-:: 1. Start Ollama (if available)
-if exist "%OLLAMA%" (
-    echo [1/4] Starting Ollama...
-    start "" /B "%~f0" :svc_ollama
-    timeout /t 2 /nobreak >nul
+:: 1. Start Ollama
+if "%MODE%"=="portable" (
+    if exist "%BASE_DIR%\ollama_embeded\ollama.exe" (
+        echo [1/4] Starting Ollama...
+        start "" /B "%~f0" :svc_ollama
+        timeout /t 2 /nobreak >nul
+    ) else (
+        echo [1/4] Ollama not found — AI chat won't work
+    )
 ) else (
-    echo [1/4] Ollama not found — AI chat won't work
+    where ollama >nul 2>nul
+    if %errorlevel% equ 0 (
+        echo [1/4] Starting Ollama...
+        start "" /B "%~f0" :svc_ollama
+        timeout /t 2 /nobreak >nul
+    ) else (
+        echo [1/4] Ollama not found — AI chat won't work
+    )
 )
 
 :: 2. Start ComfyUI
@@ -81,13 +109,12 @@ exit /b
 :launch_ollama
 set "BASE_DIR=%~dp0"
 if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
-set "OLLAMA=%BASE_DIR%\ollama_embeded\ollama.exe"
-set "OLLAMA_MODELS=%BASE_DIR%\ollama_embeded\models"
 set "OLLAMA_HOST=127.0.0.1:11434"
 
 echo [%date% %time%] Starting Ollama...
-if exist "%OLLAMA%" (
-    "%OLLAMA%" serve
+if exist "%BASE_DIR%\ollama_embeded\ollama.exe" (
+    set "OLLAMA_MODELS=%BASE_DIR%\ollama_embeded\models"
+    "%BASE_DIR%\ollama_embeded\ollama.exe" serve
 ) else (
     ollama serve
 )
@@ -103,8 +130,16 @@ exit /b
 set "BASE_DIR=%~dp0"
 if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
 set "COMFYUI_DIR=%BASE_DIR%\ComfyUI"
-set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
-set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%BASE_DIR%\git\cmd;%BASE_DIR%\node_embeded;%PATH%"
+
+:: Detect Python
+if exist "%BASE_DIR%\python_embeded\python.exe" (
+    set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
+    set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%BASE_DIR%\git\cmd;%BASE_DIR%\node_embeded;%PATH%"
+    set "COMFY_EXTRA_FLAGS=--windows-standalone-build"
+) else (
+    set "PYTHON=%BASE_DIR%\venv\Scripts\python.exe"
+    set "COMFY_EXTRA_FLAGS="
+)
 
 set COMFYUI_OFFLINE=1
 set TORIO_USE_FFMPEG=0
@@ -118,7 +153,7 @@ timeout /t 1 /nobreak >nul
 
 cd /d "%COMFYUI_DIR%"
 echo [%date% %time%] Starting ComfyUI...
-"%PYTHON%" -W ignore::FutureWarning -s -u main.py --windows-standalone-build --port 8199 --listen 127.0.0.1 --reserve-vram 4 --disable-cuda-malloc --enable-cors-header * --preview-method none --disable-auto-launch
+"%PYTHON%" -W ignore::FutureWarning -s -u main.py %COMFY_EXTRA_FLAGS% --port 8199 --listen 127.0.0.1 --reserve-vram 4 --disable-cuda-malloc --enable-cors-header * --preview-method none --disable-auto-launch
 
 if %errorlevel% neq 0 (
     echo [%date% %time%] [ERROR] ComfyUI crashed with error code %errorlevel%
@@ -132,8 +167,14 @@ exit /b
 set "BASE_DIR=%~dp0"
 if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
 set "BACKEND_DIR=%BASE_DIR%\backend"
-set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
-set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%PATH%"
+
+:: Detect Python
+if exist "%BASE_DIR%\python_embeded\python.exe" (
+    set "PYTHON=%BASE_DIR%\python_embeded\python.exe"
+    set "PATH=%BASE_DIR%\python_embeded;%BASE_DIR%\python_embeded\Scripts;%PATH%"
+) else (
+    set "PYTHON=%BASE_DIR%\venv\Scripts\python.exe"
+)
 set "PYTHONPATH=%BACKEND_DIR%;%PYTHONPATH%"
 
 echo [%date% %time%] Clearing port 8000...

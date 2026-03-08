@@ -1,48 +1,58 @@
+# ============================================================================
+# FEDDA Update & Repair — auto-detects portable vs lite mode
+# ============================================================================
+
 $ErrorActionPreference = "Stop"
 $ScriptPath = $PSScriptRoot
 $RootPath = Split-Path -Parent $ScriptPath
 Set-Location $RootPath
 
 Write-Host "===================================================" -ForegroundColor Cyan
-Write-Host "      COMFYFRONT UPDATE & REPAIR UTILITY" -ForegroundColor Cyan
+Write-Host "      FEDDA UPDATE & REPAIR" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
 # ============================================================================
-# PATHS
+# DETECT MODE
 # ============================================================================
-$PyExe = Join-Path $RootPath "python_embeded\python.exe"
-$GitExe = Join-Path $RootPath "git_embeded\cmd\git.exe"
+$PortablePy = Join-Path $RootPath "python_embeded\python.exe"
+$VenvPy = Join-Path $RootPath "venv\Scripts\python.exe"
 $ComfyDir = Join-Path $RootPath "ComfyUI"
 $CustomNodesDir = Join-Path $ComfyDir "custom_nodes"
 
-# Use embedded git if available, otherwise system git
-if (Test-Path $GitExe) {
+if (Test-Path $PortablePy) {
+    $Mode = "portable"
+    $PyExe = $PortablePy
+    Write-Host "`n  Mode: Full (portable)" -ForegroundColor Green
+} elseif (Test-Path $VenvPy) {
+    $Mode = "lite"
+    $PyExe = $VenvPy
+    Write-Host "`n  Mode: Lite (venv)" -ForegroundColor Green
+} else {
+    Write-Host "`n  [ERROR] No Python environment found!" -ForegroundColor Red
+    Write-Host "  Run install.bat first." -ForegroundColor Yellow
+    exit 1
+}
+
+# Git setup
+$GitEmbedded = Join-Path $RootPath "git_embeded\cmd\git.exe"
+if (Test-Path $GitEmbedded) {
+    $GitExe = $GitEmbedded
     $env:PATH = "$(Split-Path $GitExe);$env:PATH"
 } else {
     $GitExe = "git"
 }
 
-# Fix "dubious ownership" errors (install runs as Admin, update runs as user)
+# Fix dubious ownership errors
 & $GitExe config --global --add safe.directory '*' 2>$null
 
-# ============================================================================
-# PRE-FLIGHT CHECK
-# ============================================================================
-if (-not (Test-Path $PyExe)) {
-    Write-Host "`n[ERROR] Embedded Python not found!" -ForegroundColor Red
-    Write-Host "File missing: $PyExe" -ForegroundColor Gray
-    Write-Host "Please run 'install.bat' first before updating." -ForegroundColor Yellow
-    exit 1
-}
-
 if (-not (Test-Path $ComfyDir)) {
-    Write-Host "`n[ERROR] ComfyUI directory not found!" -ForegroundColor Red
-    Write-Host "Please run 'install.bat' first." -ForegroundColor Yellow
+    Write-Host "`n  [ERROR] ComfyUI directory not found!" -ForegroundColor Red
+    Write-Host "  Run install.bat first." -ForegroundColor Yellow
     exit 1
 }
 
 # ============================================================================
-# 1. CUSTOM NODES - Install missing / Update existing (from nodes.json)
+# 1. CUSTOM NODES — install missing / update existing (from nodes.json)
 # ============================================================================
 $NodesConfigFile = Join-Path $RootPath "config\nodes.json"
 if (-not (Test-Path $NodesConfigFile)) {
@@ -56,18 +66,17 @@ if (-not (Test-Path $CustomNodesDir)) {
     New-Item -ItemType Directory -Path $CustomNodesDir -Force | Out-Null
 }
 
-# Smart update: only git-pull existing nodes once per week (or if forced)
+# Smart update: only git-pull existing nodes once per week
 $NodeUpdateMarker = Join-Path $RootPath ".last_node_update"
-$ForceNodeUpdate = $env:FORCE_NODE_UPDATE -eq "1"
 $NeedNodeUpdate = $true
 
-if (-not $ForceNodeUpdate -and (Test-Path $NodeUpdateMarker)) {
+if (Test-Path $NodeUpdateMarker) {
     $LastUpdate = (Get-Item $NodeUpdateMarker).LastWriteTime
     $DaysSince = ((Get-Date) - $LastUpdate).TotalDays
     if ($DaysSince -lt 7) {
         $NeedNodeUpdate = $false
         $DaysLeft = [math]::Ceiling(7 - $DaysSince)
-        Write-Host "`n[1/3] Custom nodes up to date (next check in ${DaysLeft}d, use UPDATE_APP_FULL.bat to force)" -ForegroundColor Green
+        Write-Host "`n[1/3] Custom nodes up to date (next check in ${DaysLeft}d)" -ForegroundColor Green
     }
 }
 
@@ -76,12 +85,12 @@ $UpdatedCount = 0
 $SkippedCount = 0
 $FailedCount = 0
 
-# Always check for missing nodes, even when skipping updates
+# Always check for missing nodes
 $HasMissing = $false
 foreach ($Node in $NodesConfig) {
     if ($Node.local -eq $true) { continue }
-    $NodeDir_Install = Join-Path $CustomNodesDir $Node.folder
-    if (-not (Test-Path $NodeDir_Install)) { $HasMissing = $true; break }
+    $NodeDir_Check = Join-Path $CustomNodesDir $Node.folder
+    if (-not (Test-Path $NodeDir_Check)) { $HasMissing = $true; break }
 }
 
 if ($NeedNodeUpdate -or $HasMissing) {
@@ -92,7 +101,6 @@ if ($NeedNodeUpdate -or $HasMissing) {
     }
 
     foreach ($Node in $NodesConfig) {
-        # Skip local-only nodes
         if ($Node.local -eq $true) {
             Write-Host "  [$($Node.name)] Local node - skipped" -ForegroundColor Gray
             continue
@@ -101,7 +109,7 @@ if ($NeedNodeUpdate -or $HasMissing) {
         $NodeDir_Install = Join-Path $CustomNodesDir $Node.folder
 
         if (-not (Test-Path $NodeDir_Install)) {
-            # Clone missing node — always runs
+            # Clone missing node
             Write-Host "  [$($Node.name)] Installing..." -ForegroundColor White
             try {
                 $ErrorActionPreference = "Continue"
@@ -111,7 +119,6 @@ if ($NeedNodeUpdate -or $HasMissing) {
                     $InstalledCount++
                     Write-Host "  [$($Node.name)] Installed OK" -ForegroundColor Green
 
-                    # Install requirements if present
                     $ReqFile = Join-Path $NodeDir_Install "requirements.txt"
                     if (Test-Path $ReqFile) {
                         Write-Host "  [$($Node.name)] Installing dependencies..." -ForegroundColor Gray
@@ -130,7 +137,7 @@ if ($NeedNodeUpdate -or $HasMissing) {
             }
         }
         elseif ($NeedNodeUpdate) {
-            # Update existing node — only when weekly check is due
+            # Update existing node
             Write-Host "  [$($Node.name)] Updating..." -ForegroundColor Gray
             try {
                 Set-Location $NodeDir_Install
@@ -146,7 +153,6 @@ if ($NeedNodeUpdate -or $HasMissing) {
                 Set-Location $RootPath
             }
 
-            # Re-check requirements in case they changed
             $ReqFile = Join-Path $NodeDir_Install "requirements.txt"
             if (Test-Path $ReqFile) {
                 $ErrorActionPreference = "Continue"
@@ -159,7 +165,6 @@ if ($NeedNodeUpdate -or $HasMissing) {
         }
     }
 
-    # Update the marker file timestamp
     if ($NeedNodeUpdate) {
         "Updated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $NodeUpdateMarker -Force
     }
@@ -173,44 +178,50 @@ if ($NeedNodeUpdate -or $HasMissing) {
 }
 
 # ============================================================================
-# 2. FRONTEND - npm install
+# 2. FRONTEND — npm install
 # ============================================================================
 Write-Host "`n[2/3] Updating frontend dependencies..." -ForegroundColor Yellow
 $FrontendDir = Join-Path $RootPath "frontend"
 
 if (Test-Path $FrontendDir) {
-    $NodeExeDir = Join-Path $RootPath "node_embeded"
-
-    # Ensure npm shims exist
-    if (Test-Path $NodeExeDir) {
-        $NpmShim = Join-Path $NodeExeDir "node_modules\npm\bin\npm.cmd"
-        $NpxShim = Join-Path $NodeExeDir "node_modules\npm\bin\npx.cmd"
-        if (Test-Path $NpmShim) { Copy-Item $NpmShim $NodeExeDir -Force }
-        if (Test-Path $NpxShim) { Copy-Item $NpxShim $NodeExeDir -Force }
-    }
-
     Set-Location $FrontendDir
-    $NpmCmd = Join-Path $NodeExeDir "npm.cmd"
-    if (Test-Path $NpmCmd) {
-        & "$NpmCmd" "install" 2>&1 | Out-Null
-        Write-Host "  Frontend dependencies updated." -ForegroundColor Green
-    }
-    else {
-        $NodeExe = Join-Path $NodeExeDir "node.exe"
-        $NpmCli = Join-Path $NodeExeDir "node_modules\npm\bin\npm-cli.js"
-        if (Test-Path $NpmCli) {
-            & "$NodeExe" "$NpmCli" "install" 2>&1 | Out-Null
+
+    if ($Mode -eq "portable") {
+        $NodeExeDir = Join-Path $RootPath "node_embeded"
+        # Ensure npm shims exist
+        if (Test-Path $NodeExeDir) {
+            $NpmShim = Join-Path $NodeExeDir "node_modules\npm\bin\npm.cmd"
+            $NpxShim = Join-Path $NodeExeDir "node_modules\npm\bin\npx.cmd"
+            if (Test-Path $NpmShim) { Copy-Item $NpmShim $NodeExeDir -Force }
+            if (Test-Path $NpxShim) { Copy-Item $NpxShim $NodeExeDir -Force }
+        }
+        $NpmCmd = Join-Path $NodeExeDir "npm.cmd"
+        if (Test-Path $NpmCmd) {
+            & "$NpmCmd" "install" 2>&1 | Out-Null
             Write-Host "  Frontend dependencies updated." -ForegroundColor Green
         }
         else {
-            Write-Host "  [WARNING] npm not found - run install.bat first" -ForegroundColor Yellow
+            $NodeExe = Join-Path $NodeExeDir "node.exe"
+            $NpmCli = Join-Path $NodeExeDir "node_modules\npm\bin\npm-cli.js"
+            if (Test-Path $NpmCli) {
+                & "$NodeExe" "$NpmCli" "install" 2>&1 | Out-Null
+                Write-Host "  Frontend dependencies updated." -ForegroundColor Green
+            }
+            else {
+                Write-Host "  [WARNING] npm not found - run install.bat first" -ForegroundColor Yellow
+            }
         }
+    } else {
+        # Lite mode — use system npm
+        & npm install 2>&1 | Out-Null
+        Write-Host "  Frontend dependencies updated." -ForegroundColor Green
     }
+
     Set-Location $RootPath
 }
 
 # ============================================================================
-# 3. CLEANUP - Remove legacy files and folders from older versions
+# 3. CLEANUP — remove legacy files from older versions
 # ============================================================================
 Write-Host "`n[3/3] Cleaning up legacy files..." -ForegroundColor Yellow
 
@@ -231,7 +242,10 @@ $LegacyFiles = @(
     "update_dependencies.bat",
     "VOICE_FEATURES_README.md",
     "requirements-lock.txt",
-    "LOG.md"
+    "LOG.md",
+    "install-fast.bat",
+    "run-fast.bat",
+    "UPDATE_APP_FULL.bat"
 )
 
 $LegacyFolders = @(
@@ -289,6 +303,6 @@ if ($CleanedCount -eq 0) {
 # DONE
 # ============================================================================
 Write-Host "`n===================================================" -ForegroundColor Green
-Write-Host "   UPDATE COMPLETE - READY TO GENERATE!" -ForegroundColor Green
+Write-Host "   UPDATE COMPLETE" -ForegroundColor Green
 Write-Host "===================================================" -ForegroundColor Green
-Write-Host "You can now close this window and run run.bat"
+Write-Host "Run RUN.bat to start FEDDA."

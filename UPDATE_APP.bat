@@ -1,43 +1,57 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+title FEDDA Updater
 
-echo ==========================================
-echo      UPDATING COMFYFRONT APPLICATION
-echo ==========================================
+set "BASE_DIR=%~dp0"
+if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
+
 echo.
-echo Pulling latest changes from GitHub...
+echo ============================================================================
+echo   FEDDA UPDATER
+echo ============================================================================
+echo.
 
-:: Use embedded git if system git is not available
+:: ============================================================================
+:: FIND GIT
+:: ============================================================================
 where git >nul 2>&1
 if %errorlevel% neq 0 (
-    if exist "%~dp0git_embeded\cmd\git.exe" (
-        echo Using embedded git...
-        set "PATH=%~dp0git_embeded\cmd;%PATH%"
+    if exist "%BASE_DIR%\git_embeded\cmd\git.exe" (
+        echo   Using embedded git...
+        set "PATH=%BASE_DIR%\git_embeded\cmd;%PATH%"
     ) else (
-        echo [ERROR] Git not found! Please run install.bat first.
+        echo   [ERROR] Git not found! Run install.bat first.
         pause
         exit /b 1
     )
 )
 
-:: If not a git repo (downloaded as ZIP), initialize it
-if not exist "%~dp0.git" (
-    echo No git repo found - initializing from GitHub...
+:: ============================================================================
+:: INITIALIZE GIT IF NEEDED (for ZIP downloads)
+:: ============================================================================
+if not exist "%BASE_DIR%\.git" (
+    echo   No git repo found — initializing from GitHub...
     git init
     git remote add origin https://github.com/Feddakalkun/comfyuifeddafront.git
 )
 
-:: Always fetch and reset to match GitHub exactly
-:: This ensures local changes never block the update
+:: ============================================================================
+:: PULL LATEST FROM GITHUB
+:: ============================================================================
+echo   Pulling latest changes from GitHub...
+echo.
 git fetch origin main
 git reset --hard origin/main
 git clean -fd
 
+:: ============================================================================
+:: RUN UPDATE LOGIC (detects portable vs lite automatically)
+:: ============================================================================
 echo.
-echo Running repair and installation script...
-powershell -ExecutionPolicy Bypass -File "scripts\update_logic.ps1"
+powershell -ExecutionPolicy Bypass -File "%BASE_DIR%\scripts\update_logic.ps1"
 
 echo.
-echo Update finished.
+echo   Update finished. Run RUN.bat to start FEDDA.
+echo.
 pause

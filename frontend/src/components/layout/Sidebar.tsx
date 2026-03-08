@@ -10,6 +10,7 @@ import {
     Images,
     Film,
     Package,
+    Download,
 } from 'lucide-react';
 import { SystemMonitor } from '../SystemMonitor';
 import { StatusIndicator } from '../ui/StatusIndicator';
@@ -48,6 +49,7 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
         },
         { id: 'logs', label: 'Console Logs', icon: Terminal },
         { id: 'gallery', label: 'Gallery', icon: Images },
+        { id: 'tiktok', label: 'TikTok Studio', icon: Download },
         { id: 'videos', label: 'Videos', icon: Film },
         { id: 'library', label: 'LoRA Library', icon: Package },
         { id: 'settings', label: 'Settings', icon: Settings },

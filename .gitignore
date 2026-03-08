@@ -66,6 +66,7 @@ loras/
 output/
 temp/
 input/
+tiktok_downloads/
 
 # Update marker (local timestamp, not for repo)
 .last_node_update

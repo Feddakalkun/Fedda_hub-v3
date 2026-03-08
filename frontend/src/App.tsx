@@ -8,6 +8,7 @@ import { ChatPage } from './pages/ChatPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { VideosPage } from './pages/VideosPage';
 import { LibraryPage } from './pages/LibraryPage';
+import { TikTokPage } from './pages/TikTokPage';
 import { LandingPage } from './pages/LandingPage';
 import { ToastProvider } from './components/ui/Toast';
 import { OllamaQuickPull } from './components/OllamaQuickPull';
@@ -24,6 +25,17 @@ function App() {
   const handleTabChange = (tab: string, subTab?: string) => {
     setActiveTab(tab);
     if (subTab) setActiveSubTab(subTab);
+  };
+
+  // Global "Send To" — navigate to target page (image passing wired per-page)
+  const handleSendToImg2Img = (_imageUrl: string, _caption?: string) => {
+    setActiveTab('image');
+    setActiveSubTab('z-image');
+  };
+
+  const handleSendToInpaint = (_imageUrl: string) => {
+    setActiveTab('image');
+    setActiveSubTab('z-image');
   };
 
   // Find current model info
@@ -61,7 +73,8 @@ function App() {
                     activeTab === 'chat' ? 'AI-Assistent' :
                       activeTab === 'gallery' ? 'Gallery' :
                         activeTab === 'videos' ? 'Videos' :
-                          activeTab === 'library' ? 'LoRA Library' :
+                          activeTab === 'tiktok' ? 'TikTok Studio' :
+                            activeTab === 'library' ? 'LoRA Library' :
                             activeTab === 'settings' ? 'Settings' :
                               activeTab === 'logs' ? 'Console' : activeTab}
                   {['image', 'video', 'audio'].includes(activeTab) && (
@@ -105,6 +118,14 @@ function App() {
               {/* Videos Page */}
               <div className="h-full" style={{ display: activeTab === 'videos' ? undefined : 'none' }}>
                 <VideosPage />
+              </div>
+
+              {/* TikTok Page */}
+              <div className="h-full" style={{ display: activeTab === 'tiktok' ? undefined : 'none' }}>
+                <TikTokPage
+                  onSendToImg2Img={handleSendToImg2Img}
+                  onSendToInpaint={handleSendToInpaint}
+                />
               </div>
 
               {/* Library Page */}

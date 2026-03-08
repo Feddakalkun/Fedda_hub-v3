@@ -30,6 +30,7 @@ Thumbs.db
 ComfyUI/
 !ComfyUI/wildcards/
 python_embeded/
+venv/
 git/
 node_embeded/
 ollama_embeded/

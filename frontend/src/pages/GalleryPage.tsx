@@ -1,11 +1,12 @@
-// Advanced Gallery Manager with RunPod Job Tracker
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿// Advanced Gallery Manager with RunPod Job Tracker
+import { useState, useEffect } from 'react';
 import { Images, Trash2, Search, CheckSquare, Square, Download, Cloud, Loader2, CheckCircle2, AlertCircle, X, Film } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 import { BACKEND_API } from '../config/api';
 import { CatalogShell, CatalogCard } from '../components/layout/CatalogShell';
 import { directDownload } from '../utils/directDownload';
+import { useRunPodJobs } from '../hooks/useRunPodJobs';
 
 const api = (endpoint: string) => `${BACKEND_API.BASE_URL}${endpoint}`;
 
@@ -21,24 +22,7 @@ interface MediaFile {
     isVideo: boolean;
 }
 
-interface RunPodJob {
-    promptId: string;
-    status: 'uploading' | 'queued' | 'processing' | 'completed' | 'error' | 'pod_loading';
-    statusText: string;
-    startedAt: number;
-    outputs: RunPodOutput[];
-}
-
-interface RunPodOutput {
-    filename: string;
-    subfolder: string;
-    type: string;
-    preview_url: string;
-    local_url?: string;
-}
-
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.gif'];
-const POLL_INTERVAL = 3000;
 
 export const GalleryPage = () => {
     const { toast } = useToast();
@@ -49,82 +33,14 @@ export const GalleryPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'images' | 'videos'>('all');
     const [sortBy, setSortBy] = useState<'date' | 'model' | 'name'>('date');
-    const [isAnimatingRunPod, setIsAnimatingRunPod] = useState(false);
 
     // RunPod Job Tracker
-    const [runpodJobs, setRunpodJobs] = useState<RunPodJob[]>([]);
-    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const { runpodJobs, isAnimatingRunPod, startRunPodAnimation, dismissJob } = useRunPodJobs(() => {
+        loadGallery();
+    });
 
     useEffect(() => {
         loadGallery();
-        return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
-        };
-    }, []);
-
-    // Start/stop polling based on active jobs
-    useEffect(() => {
-        const activeJobs = runpodJobs.filter(j => !['completed', 'error'].includes(j.status));
-        if (activeJobs.length > 0 && !pollRef.current) {
-            pollRef.current = setInterval(() => pollRunPodJobs(), POLL_INTERVAL);
-        } else if (activeJobs.length === 0 && pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-        }
-    }, [runpodJobs]);
-
-    const pollRunPodJobs = useCallback(async () => {
-        const runpodUrl = localStorage.getItem('runpodUrl') || '';
-        const runpodToken = localStorage.getItem('runpodToken') || '';
-        if (!runpodUrl) return;
-
-        setRunpodJobs(prev => {
-            const activeJobs = prev.filter(j => !['completed', 'error'].includes(j.status));
-            if (activeJobs.length === 0) return prev;
-
-            activeJobs.forEach(async (job) => {
-                try {
-                    const res = await fetch(api(BACKEND_API.ENDPOINTS.RUNPOD_STATUS), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt_id: job.promptId, runpod_url: runpodUrl, runpod_token: runpodToken })
-                    });
-                    const data = await res.json();
-
-                    setRunpodJobs(current => current.map(j => {
-                        if (j.promptId !== job.promptId) return j;
-
-                        if (data.completed) {
-                            data.outputs?.forEach(async (output: RunPodOutput) => {
-                                try {
-                                    const dlRes = await fetch(api(BACKEND_API.ENDPOINTS.RUNPOD_DOWNLOAD), {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            runpod_url: runpodUrl, runpod_token: runpodToken,
-                                            filename: output.filename, subfolder: output.subfolder, file_type: output.type
-                                        })
-                                    });
-                                    const dlData = await dlRes.json();
-                                    if (dlData.success) output.local_url = dlData.url;
-                                } catch (e) { console.error('Download error:', e); }
-                            });
-
-                            toast('RunPod render complete! Video downloaded.', 'success');
-                            setTimeout(() => loadGallery(), 2000);
-                            return { ...j, status: 'completed' as const, statusText: 'Video ready!', outputs: data.outputs || [] };
-                        }
-
-                        let status: RunPodJob['status'] = 'queued';
-                        if (data.status === 'processing') status = 'processing';
-                        else if (data.status === 'pod_loading') status = 'pod_loading';
-                        return { ...j, status, statusText: data.status };
-                    }));
-                } catch (e) { console.error('Poll error:', e); }
-            });
-
-            return prev;
-        });
     }, []);
 
     const loadGallery = async () => {
@@ -222,62 +138,12 @@ export const GalleryPage = () => {
     };
 
     const handleRunPodAnimate = async () => {
-        const runpodUrl = localStorage.getItem('runpodUrl');
-        if (!runpodUrl) {
-            toast('Configure your RunPod Endpoint URL in Settings first!', 'error');
-            return;
-        }
-
         const selected = mediaFiles.filter(f => f.selected);
         if (selected.length === 0) return;
 
-        setIsAnimatingRunPod(true);
-
-        const tempJobId = `uploading_${Date.now()}`;
-        setRunpodJobs(prev => [...prev, {
-            promptId: tempJobId,
-            status: 'uploading',
-            statusText: `Uploading ${selected.length} images to RunPod...`,
-            startedAt: Date.now(),
-            outputs: []
-        }]);
-
-        try {
-            const response = await fetch(api(BACKEND_API.ENDPOINTS.RUNPOD_ANIMATE), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    files: selected.map(f => ({ filename: f.filename, subfolder: f.subfolder, type: f.type })),
-                    runpod_url: runpodUrl,
-                    runpod_token: localStorage.getItem('runpodToken') || ''
-                })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'RunPod error');
-
-            setRunpodJobs(prev => prev.map(j =>
-                j.promptId === tempJobId
-                    ? { ...j, promptId: data.prompt_id, status: 'queued' as const, statusText: 'Job queued on RunPod' }
-                    : j
-            ));
-            toast('Job sent to RunPod! Tracking progress...', 'success');
+        await startRunPodAnimation(selected, () => {
             setMediaFiles(prev => prev.map(f => ({ ...f, selected: false })));
-
-        } catch (error: any) {
-            console.error('RunPod trigger error:', error);
-            setRunpodJobs(prev => prev.map(j =>
-                j.promptId === tempJobId
-                    ? { ...j, status: 'error' as const, statusText: error.message }
-                    : j
-            ));
-            toast(`RunPod error: ${error.message}`, 'error');
-        } finally {
-            setIsAnimatingRunPod(false);
-        }
-    };
-
-    const dismissJob = (promptId: string) => {
-        setRunpodJobs(prev => prev.filter(j => j.promptId !== promptId));
+        });
     };
 
     const getElapsedTime = (startedAt: number) => {
@@ -316,7 +182,7 @@ export const GalleryPage = () => {
     return (
         <CatalogShell
             title="Gallery Manager"
-            subtitle={`${filteredFiles.length} files${selectedCount > 0 ? ` � ${selectedCount} selected` : ''}`} 
+            subtitle={`${filteredFiles.length} files${selectedCount > 0 ? ` • ${selectedCount} selected` : ''}`}
             icon={Images}
             actions={
                 <>
@@ -353,11 +219,10 @@ export const GalleryPage = () => {
                     {runpodJobs.map((job) => (
                         <div
                             key={job.promptId}
-                            className={`relative bg-[#121218] border rounded-2xl p-5 transition-all ${
-                                job.status === 'completed' ? 'border-emerald-500/30' :
+                            className={`relative bg-[#121218] border rounded-2xl p-5 transition-all ${job.status === 'completed' ? 'border-emerald-500/30' :
                                 job.status === 'error' ? 'border-red-500/30' :
-                                'border-blue-500/30'
-                            }`}
+                                    'border-blue-500/30'
+                                }`}
                         >
                             {['completed', 'error'].includes(job.status) && (
                                 <button onClick={() => dismissJob(job.promptId)} className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors">
@@ -366,30 +231,28 @@ export const GalleryPage = () => {
                             )}
 
                             <div className="flex items-center gap-4">
-                                <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-                                    job.status === 'completed' ? 'bg-emerald-500/20' :
+                                <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${job.status === 'completed' ? 'bg-emerald-500/20' :
                                     job.status === 'error' ? 'bg-red-500/20' : 'bg-blue-500/20'
-                                }`}>
+                                    }`}>
                                     {job.status === 'completed' ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> :
-                                     job.status === 'error' ? <AlertCircle className="w-5 h-5 text-red-400" /> :
-                                     <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />}
+                                        job.status === 'error' ? <AlertCircle className="w-5 h-5 text-red-400" /> :
+                                            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />}
                                 </div>
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm font-semibold text-white">RunPod Cloud Render</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                            job.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${job.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
                                             job.status === 'error' ? 'bg-red-500/20 text-red-400' :
-                                            job.status === 'processing' ? 'bg-amber-500/20 text-amber-400' :
-                                            job.status === 'pod_loading' ? 'bg-purple-500/20 text-purple-400' :
-                                            'bg-blue-500/20 text-blue-400'
-                                        }`}>
+                                                job.status === 'processing' ? 'bg-amber-500/20 text-amber-400' :
+                                                    job.status === 'pod_loading' ? 'bg-purple-500/20 text-purple-400' :
+                                                        'bg-blue-500/20 text-blue-400'
+                                            }`}>
                                             {job.status === 'uploading' ? 'Uploading' :
-                                             job.status === 'queued' ? 'In Queue' :
-                                             job.status === 'processing' ? 'Rendering' :
-                                             job.status === 'pod_loading' ? 'Pod Starting' :
-                                             job.status === 'completed' ? 'Done' : 'Error'}
+                                                job.status === 'queued' ? 'In Queue' :
+                                                    job.status === 'processing' ? 'Rendering' :
+                                                        job.status === 'pod_loading' ? 'Pod Starting' :
+                                                            job.status === 'completed' ? 'Done' : 'Error'}
                                         </span>
                                     </div>
                                     <p className="text-xs text-slate-400 mt-1 truncate">
@@ -403,15 +266,14 @@ export const GalleryPage = () => {
                                 {!['completed', 'error'].includes(job.status) && (
                                     <div className="w-32">
                                         <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-1000 ${
-                                                job.status === 'processing' ? 'bg-amber-400 animate-pulse' :
+                                            <div className={`h-full rounded-full transition-all duration-1000 ${job.status === 'processing' ? 'bg-amber-400 animate-pulse' :
                                                 job.status === 'pod_loading' ? 'bg-purple-400 animate-pulse' : 'bg-blue-400'
-                                            }`} style={{
-                                                width: job.status === 'uploading' ? '15%' :
-                                                       job.status === 'queued' ? '25%' :
-                                                       job.status === 'pod_loading' ? '20%' :
-                                                       job.status === 'processing' ? '60%' : '0%'
-                                            }} />
+                                                }`} style={{
+                                                    width: job.status === 'uploading' ? '15%' :
+                                                        job.status === 'queued' ? '25%' :
+                                                            job.status === 'pod_loading' ? '20%' :
+                                                                job.status === 'processing' ? '60%' : '0%'
+                                                }} />
                                         </div>
                                     </div>
                                 )}
@@ -485,7 +347,7 @@ export const GalleryPage = () => {
                             className={`group relative aspect-square bg-black/20 rounded-xl overflow-hidden border transition-all ${file.selected
                                 ? 'border-white ring-2 ring-white'
                                 : 'border-white/10 hover:border-white/50'
-                            }`}
+                                }`}
                         >
                             {/* Video or Image thumbnail */}
                             {file.isVideo ? (

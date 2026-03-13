@@ -10,6 +10,17 @@ import { WorkbenchShell } from '../components/layout/WorkbenchShell';
 import { BACKEND_API } from '../config/api';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { directDownload } from '../utils/directDownload';
+import {
+    ACE_PRESETS,
+    ACE_FEATURED_PRESET_IDS,
+    ACE_DEFAULT_MODELS,
+    ACE_REQUIRED_NODE_TYPES
+} from '../config/audioPresets';
+import {
+    buildReferenceSuggestions,
+    type AudioReferenceInfo,
+    type ReferenceSuggestions
+} from '../utils/audioPatterns';
 
 interface OutputFileRef {
     filename: string;
@@ -17,303 +28,15 @@ interface OutputFileRef {
     type: string;
 }
 
-interface AudioReferenceInfo {
-    title: string;
-    uploader: string;
-    duration_seconds: number;
-    description: string;
-    tags: string[];
-    categories: string[];
-    webpage_url: string;
-}
-
-interface ReferenceSuggestions {
-    bpm: number;
-    seconds: number;
-    tags: string;
-    arrangementHint: string;
-}
-
 type GenerationSourceMode = 'preset' | 'reference' | 'manual';
-
-type AcePreset = {
-    id: string;
-    label: string;
-    artistHint: string;
-    tags: string;
-    lyrics: string;
-    seconds: number;
-    bpm: number;
-    steps: number;
-    cfg: number;
-    cfgScale: number;
-};
 
 const AUDIO_FILE_REGEX = /\.(flac|wav|mp3|ogg|m4a|aac)$/i;
 const REFERENCE_CUES_MARKER = '[Reference cues]';
 
-const BPM_HINTS: Array<{ pattern: RegExp; bpm: number }> = [
-    { pattern: /\b(drum\s*and\s*bass|dnb)\b/i, bpm: 174 },
-    { pattern: /\b(hardstyle)\b/i, bpm: 150 },
-    { pattern: /\b(phonk)\b/i, bpm: 160 },
-    { pattern: /\b(techno)\b/i, bpm: 130 },
-    { pattern: /\b(house|deep house|tech house)\b/i, bpm: 124 },
-    { pattern: /\b(trance)\b/i, bpm: 138 },
-    { pattern: /\b(trap)\b/i, bpm: 145 },
-    { pattern: /\b(hip hop|hip-hop|rap)\b/i, bpm: 95 },
-    { pattern: /\b(reggaeton)\b/i, bpm: 96 },
-    { pattern: /\b(pop)\b/i, bpm: 120 },
-    { pattern: /\b(rnb|r&b|soul)\b/i, bpm: 100 },
-    { pattern: /\b(rock|metal)\b/i, bpm: 128 },
-    { pattern: /\b(ambient|cinematic)\b/i, bpm: 90 },
-];
 
-const dedupeTokens = (tokens: string[]): string[] => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    tokens.forEach((token) => {
-        const cleaned = token
-            .replace(/[|]/g, ',')
-            .split(',')
-            .map((part) => part.trim())
-            .filter(Boolean)
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        if (!cleaned) return;
-
-        const key = cleaned.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(cleaned);
-    });
-    return out;
-};
-
-const inferReferenceBpm = (info: AudioReferenceInfo): number => {
-    const pool = [info.title, info.description, ...(info.tags || []), ...(info.categories || [])]
-        .filter(Boolean)
-        .join(' ');
-
-    const explicit = pool.match(/(?:^|\b)([6-9]\d|1\d\d|2\d\d)\s?bpm\b/i);
-    if (explicit) {
-        const parsed = parseInt(explicit[1], 10);
-        if (!Number.isNaN(parsed)) return parsed;
-    }
-
-    const hinted = BPM_HINTS.find((entry) => entry.pattern.test(pool));
-    return hinted?.bpm || 120;
-};
-
-const buildArrangementHint = (durationSeconds: number): string => {
-    if (durationSeconds <= 45) {
-        return 'short-form hook first: intro (2 bars), verse (4 bars), chorus (8 bars), fast turnaround outro';
-    }
-    if (durationSeconds <= 120) {
-        return 'compact song form: intro, verse, pre-chorus, chorus, verse 2, chorus, bridge, final chorus';
-    }
-    return 'full song arc: intro, verse, pre, chorus, verse 2, pre, chorus, bridge breakdown, final chorus, outro';
-};
-
-const buildReferenceSuggestions = (
-    info: AudioReferenceInfo,
-    favoriteArtist: string,
-    currentSeconds: number
-): ReferenceSuggestions => {
-    const bpm = Math.max(70, Math.min(220, inferReferenceBpm(info)));
-    const sourceDuration = Number(info.duration_seconds) || currentSeconds || 120;
-    const seconds = Math.max(20, Math.min(240, Math.round(sourceDuration / 10) * 10));
-
-    const candidateTags = dedupeTokens([
-        favoriteArtist ? `${favoriteArtist} inspired` : '',
-        ...(info.categories || []).slice(0, 3),
-        ...(info.tags || []).slice(0, 6),
-        `${bpm} BPM`,
-    ]);
-    const tags = candidateTags.join(', ');
-
-    return {
-        bpm,
-        seconds,
-        tags,
-        arrangementHint: buildArrangementHint(seconds),
-    };
-};
 const HISTORY_ITEM_KEYS = ['status', 'outputs', 'prompt'];
 
-const ACE_DEFAULT_MODELS = {
-    unet: 'acestep_v1.5_turbo.safetensors',
-    clip1: 'qwen_0.6b_ace15.safetensors',
-    clip2: 'qwen_0.6b_ace15.safetensors',
-    vae: 'ace_1.5_vae.safetensors',
-};
 
-const ACE_REQUIRED_NODE_TYPES: Record<string, string> = {
-    '72': 'VAEDecodeAudio',
-    '73': 'KSampler',
-    '74': 'ConditioningZeroOut',
-    '75': 'EmptyAceStep1.5LatentAudio',
-    '76': 'UNETLoader',
-    '77': 'DualCLIPLoader',
-    '78': 'TextEncodeAceStepAudio1.5',
-    '79': 'SaveAudio',
-    '80': 'ModelSamplingAuraFlow',
-    '81': 'VAELoader',
-};
-
-const ACE_PRESETS: AcePreset[] = [
-    {
-        id: 'mj-groove-pop',
-        label: 'MJ Groove Pop',
-        artistHint: 'Michael Jackson-inspired',
-        tags: 'groove pop, funk bass, tight live drums, punchy brass stabs, soulful male vocal, dancefloor hook, retro modern polish, 118 BPM',
-        lyrics: '[verse]\nCity lights burn like fire tonight\nFeet on the edge and the rhythm is right\n\n[pre-chorus]\nHeartbeat racing under neon skies\n\n[chorus]\nWe move like thunder, no looking back\nHands to the ceiling, we light the track',
-        seconds: 120,
-        bpm: 118,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.2,
-    },
-    {
-        id: 'metallica-heavy',
-        label: 'Metallica Heavy',
-        artistHint: 'Metallica-inspired',
-        tags: 'heavy metal, palm-muted guitar riffs, aggressive drums, distorted bass, dramatic build, stadium chorus, dark energy, 132 BPM',
-        lyrics: '[verse]\nSteel in my lungs and thunder in my veins\nMarch through the smoke in a storm of chains\n\n[chorus]\nRaise the fire, break the night\nWe are the pressure, we are the fight',
-        seconds: 130,
-        bpm: 132,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.3,
-    },
-    {
-        id: 'sundfor-nordic-cinema',
-        label: 'Sundfor Nordic',
-        artistHint: 'Susanne Sundfor-inspired',
-        tags: 'nordic art pop, cinematic synth layers, intimate female vocal, melancholic lift, atmospheric textures, emotional crescendo, 104 BPM',
-        lyrics: '[verse]\nSnow on the wires, a silver glow\nI hear your name in the undertow\n\n[chorus]\nCarry me over the northern line\nCold as a star, but the pulse is mine',
-        seconds: 140,
-        bpm: 104,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.1,
-    },
-    {
-        id: 'infected-psytrance',
-        label: 'Infected Psy',
-        artistHint: 'Infected Mushroom-inspired',
-        tags: 'psytrance, goa leads, rolling bassline, tribal percussion, psychedelic FX, vocal chops, high energy drop, 145 BPM',
-        lyrics: '[intro]\n(instrumental mantra texture)\n\n[verse]\nSpiral in the night where the colors collide\n\n[chorus]\nTake me higher, fractal fire\nRide the signal, never tire',
-        seconds: 120,
-        bpm: 145,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.4,
-    },
-    {
-        id: 'billie-dark-pop',
-        label: 'Dark Whisper Pop',
-        artistHint: 'Billie Eilish-inspired',
-        tags: 'dark pop, minimalist beat, intimate whispered female vocal, sub bass, moody textures, cinematic tension, 96 BPM',
-        lyrics: '[verse]\nMidnight glass and a silver haze\nI hear your pulse in electric waves\n\n[chorus]\nHold me close in the low blue light\nWe disappear in the static night',
-        seconds: 110,
-        bpm: 96,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.2,
-    },
-    {
-        id: 'weeknd-neon-rnb',
-        label: 'Neon RnB Drive',
-        artistHint: 'The Weeknd-inspired',
-        tags: 'synthwave rnb, neon pads, pulsing bass, smooth male vocal, glossy 80s drums, late-night vibe, 108 BPM',
-        lyrics: '[verse]\nRed lights bleeding on the boulevard\nEvery promise hits me like a spark\n\n[chorus]\nStay for the night, dont fade away\nNeon hearts in a purple haze',
-        seconds: 120,
-        bpm: 108,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.2,
-    },
-    {
-        id: 'zimmer-trailer',
-        label: 'Trailer Impact',
-        artistHint: 'Hans Zimmer-inspired',
-        tags: 'cinematic trailer, braam hits, epic strings, hybrid percussion, rising tension, wide choir, dramatic climax, 96 BPM',
-        lyrics: '[intro]\n(instrumental)\n\n[bridge]\nShadows awaken, the sky turns gold\n\n[outro]\n(instrumental impact ending)',
-        seconds: 120,
-        bpm: 96,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.1,
-    },
-    {
-        id: 'adele-soul-ballad',
-        label: 'Soul Ballad Lift',
-        artistHint: 'Adele-inspired',
-        tags: 'soul pop ballad, piano lead, emotional female vocal, warm strings, intimate to powerful dynamic arc, 84 BPM',
-        lyrics: '[verse]\nI kept your letters in a quiet drawer\nEvery word still knocks against the door\n\n[chorus]\nIf love was fire, I still feel the flame\nCall my name through the rain',
-        seconds: 140,
-        bpm: 84,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.1,
-    },
-    {
-        id: 'drake-melodic-trap',
-        label: 'Melodic Trap Mood',
-        artistHint: 'Drake-inspired',
-        tags: 'melodic trap, airy keys, deep 808, sparse hats, introspective male vocal, modern urban vibe, 140 BPM',
-        lyrics: '[verse]\nLate calls, same walls, city never sleeps\nGold lights on my face while the silence speaks\n\n[chorus]\nI keep moving through the echo and the rain\nEvery win feels different, every loss the same',
-        seconds: 120,
-        bpm: 140,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.3,
-    },
-    {
-        id: 'avicii-festival',
-        label: 'Festival Uplift',
-        artistHint: 'Avicii-inspired',
-        tags: 'uplifting edm pop, acoustic guitar plucks, bright synth lead, festival drop, euphoric chorus, 128 BPM',
-        lyrics: '[verse]\nDust on my shoes and sun in my eyes\nChasing tomorrow across open skies\n\n[chorus]\nWe are the sparks in the midnight crowd\nSing it louder, sing it loud',
-        seconds: 120,
-        bpm: 128,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.3,
-    },
-    {
-        id: 'ambient-focus',
-        label: 'Ambient Focus',
-        artistHint: 'Instrumental ambient-inspired',
-        tags: 'ambient electronic, soft evolving pads, no vocals, subtle pulses, lo-fi texture, deep focus background, 78 BPM',
-        lyrics: '[intro]\n(instrumental)\n\n[verse]\n(instrumental)\n\n[outro]\n(instrumental fade)',
-        seconds: 180,
-        bpm: 78,
-        steps: 12,
-        cfg: 1,
-        cfgScale: 1.0,
-    },
-    {
-        id: 'tiktok-hook-30',
-        label: 'TikTok Hook 30s',
-        artistHint: 'Viral short-form pop-inspired',
-        tags: 'viral pop hook, upfront vocal, clean punchy drums, glossy synths, immediate chorus, loop-friendly, 124 BPM',
-        lyrics: '[intro]\nOne line setup\n\n[chorus]\nThis is the moment, dont let it go\nSay my name and steal the show',
-        seconds: 30,
-        bpm: 124,
-        steps: 10,
-        cfg: 1,
-        cfgScale: 1.2,
-    },
-];
-
-const ACE_FEATURED_PRESET_IDS = [
-    'mj-groove-pop',
-    'metallica-heavy',
-    'sundfor-nordic-cinema',
-    'infected-psytrance',
-];
 const chooseModel = (models: string[], preferred: string, fuzzy?: string): string => {
     if (models.includes(preferred)) return preferred;
     if (fuzzy) {

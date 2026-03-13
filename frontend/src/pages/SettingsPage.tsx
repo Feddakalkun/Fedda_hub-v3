@@ -1,229 +1,43 @@
-import { useState, useEffect } from 'react';
-import { Download, Trash2, BrainCircuit, Search, RotateCw, CheckCircle2, AlertCircle, ExternalLink, FolderOpen } from 'lucide-react';
+﻿import { Download, Trash2, BrainCircuit, Search, RotateCw, CheckCircle2, AlertCircle, ExternalLink, FolderOpen } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { useToast } from '../components/ui/Toast';
-import { ollamaService } from '../services/ollamaService';
-import type { OllamaModel, OllamaProgress } from '../services/ollamaService';
 import { CatalogShell, CatalogCard } from '../components/layout/CatalogShell';
-
-// Text / Chat Models
-const TEXT_MODELS = [
-    { id: 'goonsai/qwen2.5-3B-goonsai-nsfw-100k', label: 'Qwen 2.5 3B NSFW (Goonsai)', description: 'NSFW-tuned Qwen, great for creative prompts/roleplay.' },
-    { id: 'zarigata/unfiltered-llama3', label: 'Unfiltered Llama 3', description: 'Fully unrestricted Llama3, no filters.' },
-    { id: 'cognitivecomputations/dolphin-2.9.3-mistral-nemo-12b', label: 'Dolphin Mistral Nemo 12B', description: 'Strong for anything-goes tasks (active 2026).' },
-    { id: 'ehartford/dolphin-2.7-mixtral-8x7b', label: 'Dolphin Mixtral 8x7B', description: 'Classic uncensored Mixtral, top for creative/NSFW.' }
-];
-
-// Vision / Captioning Models
-const VISION_MODELS = [
-    { id: 'llama3.2-vision', label: 'Llama 3.2 Vision (Original)', description: 'Meta\'s vision model, excels at detailed captioning.' },
-    { id: 'llama3.2-vision:11b', label: 'Llama 3.2 Vision 11B (Light)', description: 'Lighter 11B version, good for ComfyUI workflows.' },
-    { id: 'llava', label: 'LLaVA (General)', description: 'Solid for general image descriptions.' },
-    { id: 'user-v4/joycaption-beta', label: 'JoyCaption Beta', description: 'Uncensored JoyCaption (Llama-based VLM).' }
-];
-
-interface NodeInstallStatus {
-    success: boolean;
-    phase: 'pending' | 'core_ready_full_installing' | 'completed';
-    core_installed: boolean;
-    full_installed: boolean;
-    bg_log_tail: string[];
-}
+import { useOllamaManager } from '../hooks/useOllamaManager';
+import { useRunPodSettings } from '../hooks/useRunPodSettings';
 
 export const SettingsPage = () => {
-    const { toast } = useToast();
-    const [installedModels, setInstalledModels] = useState<OllamaModel[]>([]);
-    const [isLoadingModels, setIsLoadingModels] = useState(false);
+    const {
+        installedModels,
+        isLoadingModels,
+        modelCategory,
+        setModelCategory,
+        activeList,
+        selectedModel,
+        setSelectedModel,
+        customModel,
+        setCustomModel,
+        isPulling,
+        pullProgress,
+        pullError,
+        refreshModels,
+        handlePull,
+        handleDelete
+    } = useOllamaManager();
 
-    // Download UI State
-    const [modelCategory, setModelCategory] = useState<'text' | 'vision'>('text');
-    const activeList = modelCategory === 'text' ? TEXT_MODELS : VISION_MODELS;
-
-    const [selectedModel, setSelectedModel] = useState(activeList[0].id);
-    const [customModel, setCustomModel] = useState('');
-    const [isPulling, setIsPulling] = useState(false);
-    const [pullProgress, setPullProgress] = useState<OllamaProgress | null>(null);
-    const [pullError, setPullError] = useState('');
-
-    // RunPod state
-    const [runpodUrl, setRunpodUrl] = useState('');
-    const [runpodToken, setRunpodToken] = useState('');
-    const [runpodExplorerUrl, setRunpodExplorerUrl] = useState('');
-    const [nodeInstallStatus, setNodeInstallStatus] = useState<NodeInstallStatus | null>(null);
-    const [isLoadingNodeStatus, setIsLoadingNodeStatus] = useState(false);
-
-    useEffect(() => {
-        refreshModels();
-        // Load RunPod settings
-        setRunpodUrl(localStorage.getItem('runpodUrl') || '');
-        setRunpodToken(localStorage.getItem('runpodToken') || '');
-        setRunpodExplorerUrl(localStorage.getItem('runpodExplorerUrl') || '');
-    }, []);
-
-    const saveRunpodSettings = () => {
-        localStorage.setItem('runpodUrl', runpodUrl);
-        localStorage.setItem('runpodToken', runpodToken);
-        localStorage.setItem('runpodExplorerUrl', runpodExplorerUrl);
-        toast('RunPod settings saved!', 'success');
-    };
-    const deriveRunpodBase = (url: string) => {
-        const trimmed = url.trim();
-        if (!trimmed) return '';
-        return trimmed.replace(/\/prompt\/?$/i, '');
-    };
-
-    const runpodBaseUrl = deriveRunpodBase(runpodUrl);
-    const resolvedExplorerUrl = runpodExplorerUrl.trim() || (runpodBaseUrl ? `${runpodBaseUrl}/` : '');
-
-    const deriveComfyUiUrl = () => {
-        const source = runpodBaseUrl || runpodUrl.trim();
-
-        if (!source) {
-            const host = window.location.host;
-            if (/\.proxy\.runpod\.net$/i.test(host)) {
-                const comfyHost = host.replace(/-\d+(\.proxy\.runpod\.net)$/i, '-8199$1');
-                return `${window.location.protocol}//${comfyHost}/`;
-            }
-            return '/comfy/';
-        }
-
-        try {
-            const parsed = new URL(source);
-            if (/\.proxy\.runpod\.net$/i.test(parsed.host)) {
-                parsed.host = parsed.host.replace(/-\d+(\.proxy\.runpod\.net)$/i, '-8199$1');
-            } else if (parsed.port) {
-                parsed.port = '8199';
-            }
-            parsed.pathname = '/';
-            parsed.search = '';
-            parsed.hash = '';
-            return parsed.toString();
-        } catch {
-            return `${source.replace(/\/+$/i, '').replace(/\/prompt\/?$/i, '')}/`;
-        }
-    };
-
-    const openExternal = (url: string, label: string) => {
-        if (!url) {
-            toast(`No ${label} URL configured yet.`, 'error');
-            return;
-        }
-        window.open(url, '_blank', 'noopener,noreferrer');
-    };
-
-    const explorerCandidates = () => {
-        const override = runpodExplorerUrl.trim();
-        if (override) return [override];
-        if (!runpodBaseUrl) return [];
-        return [
-            `${runpodBaseUrl}/lab/tree`,
-            `${runpodBaseUrl}/tree`,
-            `${runpodBaseUrl}/files`,
-            `${runpodBaseUrl}/`
-        ];
-    };
-
-    const probeReachable = async (url: string) => {
-        try {
-            await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' });
-            return true;
-        } catch {
-            return false;
-        }
-    };
-
-    const refreshNodeInstallStatus = async () => {
-        setIsLoadingNodeStatus(true);
-        try {
-            const res = await fetch('/api/system/node-install-status');
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data?.success) {
-                setNodeInstallStatus(data);
-            }
-        } catch {
-            // likely not running in RunPod/docker backend
-        } finally {
-            setIsLoadingNodeStatus(false);
-        }
-    };
-
-    const openRunpodExplorer = async () => {
-        const candidates = explorerCandidates();
-        if (candidates.length === 0) {
-            toast('No RunPod base URL configured yet.', 'error');
-            return;
-        }
-
-        for (const candidate of candidates) {
-            if (await probeReachable(candidate)) {
-                window.open(candidate, '_blank', 'noopener,noreferrer');
-                toast(`Opening explorer: ${candidate}`, 'info');
-                return;
-            }
-        }
-
-        toast('Could not reach RunPod file explorer. Set full Explorer URL (e.g. /lab/tree).', 'error');
-    };
-
-    useEffect(() => {
-        refreshNodeInstallStatus();
-        const timer = setInterval(refreshNodeInstallStatus, 6000);
-        return () => clearInterval(timer);
-    }, []);
-
-    // Update selected model when category changes
-    useEffect(() => {
-        setSelectedModel(activeList[0].id);
-    }, [modelCategory]);
-
-    const refreshModels = async () => {
-        setIsLoadingModels(true);
-        try {
-            const models = await ollamaService.getModels();
-            // Sort by recent
-            models.sort((a, b) => new Date(b.modified_at).getTime() - new Date(a.modified_at).getTime());
-            setInstalledModels(models);
-        } catch (error) {
-            console.error('Failed to load models', error);
-        } finally {
-            setIsLoadingModels(false);
-        }
-    };
-
-    const handlePull = async () => {
-        const modelToPull = customModel.trim() || selectedModel;
-        if (!modelToPull) return;
-
-        setIsPulling(true);
-        setPullProgress({ status: 'Initiating download...' });
-        setPullError('');
-
-        try {
-            await ollamaService.pullModel(modelToPull, (progress) => {
-                setPullProgress(progress);
-                if (progress.status === 'success') {
-                    // Slight delay to show success before refresh
-                    setTimeout(refreshModels, 1000);
-                }
-            });
-            setCustomModel('');
-        } catch (error) {
-            setPullError('Failed to download model. Ensure Ollama is running.');
-        } finally {
-            setIsPulling(false);
-        }
-    };
-
-    const handleDelete = async (name: string) => {
-        if (!confirm(`Are you sure you want to delete ${name}?`)) return;
-        try {
-            await ollamaService.deleteModel(name);
-            refreshModels();
-        } catch (error) {
-            toast('Failed to delete model', 'error');
-        }
-    };
+    const {
+        runpodUrl,
+        setRunpodUrl,
+        runpodToken,
+        setRunpodToken,
+        runpodExplorerUrl,
+        setRunpodExplorerUrl,
+        nodeInstallStatus,
+        isLoadingNodeStatus,
+        saveRunpodSettings,
+        deriveComfyUiUrl,
+        openExternal,
+        openRunpodExplorer,
+        refreshNodeInstallStatus
+    } = useRunPodSettings();
 
     const formatSize = (bytes: number) => {
         const gb = bytes / (1024 * 1024 * 1024);
@@ -408,7 +222,7 @@ export const SettingsPage = () => {
             {/* RunPod Settings Section */}
             <CatalogCard className="p-6 shadow-xl space-y-6">
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                    ☁️ Cloud Engines / RunPod Integration
+                    â˜ï¸ Cloud Engines / RunPod Integration
                 </h2>
                 <p className="text-sm text-slate-400">
                     Enter your RunPod Serverless or Pod endpoint URL and Bearer token below. This allows you to select images in the Gallery and render Wan2.1 First/Last Frame loops directly in the cloud.

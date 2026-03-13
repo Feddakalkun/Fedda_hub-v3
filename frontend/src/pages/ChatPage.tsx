@@ -18,31 +18,9 @@ interface Message {
     images?: string[]; // Base64 images for vision models
 }
 
-// System prompt to guide the Agent
-// System prompt to guide the Agent
-const AGENT_SYSTEM_PROMPT = `You are FEDDA AGENT, an Elite Creative Director and Expert Stable Diffusion Prompt Engineer.
-Your goal is to help the user create AWARD-WINNING visuals via ComfyUI.
+import { AGENT_SYSTEM_PROMPT } from '../config/agentPrompt';
+import { useChatAudio } from '../hooks/useChatAudio';
 
-### 🧠 CORE DIRECTIVES:
-1.  **Visual Excellence:** Never settle for boring. Always aim for "Z-Image" quality: Photorealistic, Cinematic, High Detail, 8k.
-2.  **Context Mastery & Logic:** ALWAYS CHECK CHAT HISTORY. If the user says "change hair to blue", REMEMBER the previous image details (pose, setting) and ONLY change the hair. If the user requests a LOCATION change (e.g. "move her to a bus"), REMOVE old locations (e.g. "mountains") and replace them. Do not include conflicting settings in one prompt.
-3.  **Vision Analysis:** If an image is uploaded, analyze its composition, lighting, and style. Use it as inspiration.
-
-### 🎨 PROMPT INGREDIENTS (Use freely to enhance prompts):
--   **Lighting:** Volumetric, Cinematic, Rembrandt, Bioluminescent, God Rays, Studio Softbox, Hard Rim Lighting.
--   **Camera:** 85mm Portrait, Macro, Wide Angle, Drone View, GoPro, Bokeh/Depth of Field, F/1.8.
--   **Details:** Skin pores, fabric texture, water droplets, dust particles, film grain, imperfect skin.
--   **Styles:** Cyberpunk, Fantasy, Noir, Vaporwave, Cinematic, Corporate, 1990s VHS, Analog Photography.
-
-### 🚀 BEHAVIOR:
--   **Simple Request:** If user says "a cat", EXPAND it: "A majestic Maine Coon in a neon alley, rain, volumetric fog, cybernetic details."
--   **Specific Request:** If user is specific, FOLLOW EXACTLY.
--   **Conversation:** If user says "Hi" or chats, just reply nicely. DO NOT GENERATE.
-
-### 📢 FORMAT (Only when generating):
-<<GENERATE>>
-[Subject & Pose], [Clothing], [Environment/Background], [Lighting & Mood], [Camera & Angle], [Style Tags], [Tech Specs: best quality, 8k, masterpiece]
-<</GENERATE>>`;
 
 export const ChatPage = () => {
     const { toast } = useToast();
@@ -64,24 +42,39 @@ export const ChatPage = () => {
     const [selectedLora, setSelectedLora] = useState<string>('');
     const [executionStatus, setExecutionStatus] = useState('');
     const [progress, setProgress] = useState(0);
-    const [isRecording, setIsRecording] = useState(false);
-    const [isTranscribing, setIsTranscribing] = useState(false);
-    const [recordingMode, setRecordingMode] = useState<'hold' | 'toggle'>('hold');
+    const {
+        isRecording,
+        isTranscribing,
+        recordingMode,
+        setRecordingMode,
+        handleMicMouseDown,
+        handleMicMouseUp,
+        handleMicClick,
+        ttsEnabled,
+        setTtsEnabled,
+        playingMsgId,
+        generatingTtsId,
+        voiceStyle,
+        setVoiceStyle,
+        playTTS,
+        stopTTS,
+    } = useChatAudio({
+        setInput,
+        appendMessage: (role, content) => {
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role,
+                content,
+                timestamp: Date.now(),
+                type: 'text'
+            }]);
+        },
+        autoPlayTTSMsg: messages.length > 0 ? messages[messages.length - 1] : null
+    });
 
     // Drag & Drop / Vision State
     const [isDragging, setIsDragging] = useState(false);
     const [pendingImages, setPendingImages] = useState<string[]>([]); // Base64 strings
-
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
-    const recordingTimeoutRef = useRef<number | null>(null);
-
-    // TTS State
-    const [ttsEnabled, setTtsEnabled] = useState(false);
-    const [playingMsgId, setPlayingMsgId] = useState<string | null>(null);
-    const [generatingTtsId, setGeneratingTtsId] = useState<string | null>(null);
-    const [voiceStyle, setVoiceStyle] = useState('female, clear voice');
-    const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -436,190 +429,6 @@ export const ChatPage = () => {
         }
     };
 
-    // Voice Recording Functions
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            // Use webm/opus for best compatibility and smallest size
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : 'audio/webm';
-
-            const mediaRecorder = new MediaRecorder(stream, { mimeType });
-            mediaRecorderRef.current = mediaRecorder;
-            audioChunksRef.current = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-                stream.getTracks().forEach(track => track.stop());
-                await transcribeAudio(audioBlob);
-            };
-
-            mediaRecorder.start();
-            setIsRecording(true);
-
-            // Auto-stop after 30 seconds
-            recordingTimeoutRef.current = setTimeout(() => {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                    stopRecording();
-                }
-            }, 30000);
-
-        } catch (error) {
-            console.error('Error accessing microphone:', error);
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: '⚠️ Could not access microphone. Please check permissions.',
-                timestamp: Date.now(),
-                type: 'text'
-            }]);
-        }
-    };
-
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-            setIsRecording(false);
-
-            if (recordingTimeoutRef.current) {
-                clearTimeout(recordingTimeoutRef.current);
-                recordingTimeoutRef.current = null;
-            }
-        }
-    };
-
-    const transcribeAudio = async (audioBlob: Blob) => {
-        setIsTranscribing(true);
-        try {
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.webm');
-
-            const response = await fetch('/api/audio/transcribe', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error('Transcription failed');
-            }
-
-            const data = await response.json();
-            const transcribedText = data.text || '';
-
-            if (transcribedText.trim()) {
-                // Option C from questions: both flows available
-                // For now, set in input field so user can edit before sending
-                setInput(prev => prev + (prev ? ' ' : '') + transcribedText);
-            } else {
-                throw new Error('No speech detected');
-            }
-
-        } catch (error) {
-            console.error('Transcription error:', error);
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: '⚠️ Could not transcribe audio. Please try again.',
-                timestamp: Date.now(),
-                type: 'text'
-            }]);
-        } finally {
-            setIsTranscribing(false);
-        }
-    };
-
-    const handleMicMouseDown = () => {
-        if (recordingMode === 'hold') {
-            startRecording();
-        }
-    };
-
-    const handleMicMouseUp = () => {
-        if (recordingMode === 'hold' && isRecording) {
-            stopRecording();
-        }
-    };
-
-    const handleMicClick = () => {
-        if (recordingMode === 'toggle') {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
-            }
-        }
-    };
-
-    // TTS Functions
-    const playTTS = async (messageId: string, text: string) => {
-        try {
-            setGeneratingTtsId(messageId);
-
-            // Generate TTS
-            const response = await fetch('/api/audio/tts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text,
-                    voice_style: voiceStyle
-                })
-            });
-
-            if (!response.ok) throw new Error('TTS generation failed');
-
-            // Get audio blob
-            const audioBlob = await response.blob();
-            const audioUrl = URL.createObjectURL(audioBlob);
-
-            // Stop any currently playing audio
-            if (audioPlayerRef.current) {
-                audioPlayerRef.current.pause();
-                audioPlayerRef.current = null;
-            }
-
-            // Create and play audio
-            const audio = new Audio(audioUrl);
-            audioPlayerRef.current = audio;
-            setPlayingMsgId(messageId);
-            setGeneratingTtsId(null);
-
-            audio.onended = () => {
-                setPlayingMsgId(null);
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            audio.onerror = () => {
-                setPlayingMsgId(null);
-                setGeneratingTtsId(null);
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            await audio.play();
-
-        } catch (error) {
-            console.error('TTS error:', error);
-            setPlayingMsgId(null);
-            setGeneratingTtsId(null);
-        }
-    };
-
-    const stopTTS = () => {
-        if (audioPlayerRef.current) {
-            audioPlayerRef.current.pause();
-            audioPlayerRef.current = null;
-        }
-        setPlayingMsgId(null);
-    };
-
-    // Auto-play TTS for new assistant messages when enabled
 
     const handleDownloadGeneratedImage = async (msg: Message) => {
         const imageUrl = msg.metadata?.imageUrl as string | undefined;
@@ -636,17 +445,7 @@ export const ChatPage = () => {
             toast('Failed to download image', 'error');
         }
     };
-    useEffect(() => {
-        if (!ttsEnabled || messages.length === 0) return;
 
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.role === 'assistant' && lastMessage.type === 'text' && !playingMsgId && !generatingTtsId) {
-            // Auto-play with a slight delay to feel natural
-            setTimeout(() => {
-                playTTS(lastMessage.id, lastMessage.content);
-            }, 300);
-        }
-    }, [messages, ttsEnabled]);
 
     return (
         <div

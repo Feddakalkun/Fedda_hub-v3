@@ -1293,47 +1293,33 @@ async def model_progress(model_id: str):
 
 
 # ============================================================================
-# Chat with IF_AI_tools (via ComfyUI)
+# Chat with Ollama
 # ============================================================================
 
 class ChatRequest(BaseModel):
     messages: list
-    model: str = "qwen2.5-3b-instruct"
+    model: str = "qwen2.5:3b"
 
 @app.post("/api/chat")
 async def chat_with_llm(request: ChatRequest):
-    """Chat using IF_AI_tools nodes in ComfyUI"""
+    """Chat using Ollama"""
     try:
-        # Load workflow
-        workflow_path = Path(__file__).parent.parent / "public" / "workflows" / "if-ai-chat.json"
-        workflow = json.loads(workflow_path.read_text())
+        ollama_url = "http://127.0.0.1:11434/api/chat"
 
-        # Build prompt from messages
-        prompt = "\n".join([f"{m['role']}: {m['content']}" for m in request.messages])
+        payload = {
+            "model": request.model,
+            "messages": request.messages,
+            "stream": False
+        }
 
-        # Update workflow with prompt
-        workflow["1"]["inputs"]["prompt"] = prompt
-
-        # Queue workflow
-        comfy_url = "http://127.0.0.1:8199"
-        response = requests.post(f"{comfy_url}/prompt", json={"prompt": workflow})
+        response = requests.post(ollama_url, json=payload, timeout=120)
         response.raise_for_status()
-        prompt_id = response.json()["prompt_id"]
 
-        # Poll for completion (max 60s)
-        import time
-        for _ in range(60):
-            time.sleep(1)
-            history_resp = requests.get(f"{comfy_url}/history/{prompt_id}")
-            history = history_resp.json()
-
-            if prompt_id in history and history[prompt_id].get("outputs"):
-                # Extract text output from node 2
-                outputs = history[prompt_id]["outputs"]
-                if "2" in outputs and "text" in outputs["2"]:
-                    return {"response": outputs["2"]["text"][0], "success": True}
-
-        raise HTTPException(status_code=504, detail="LLM response timeout")
+        data = response.json()
+        return {
+            "response": data.get("message", {}).get("content", ""),
+            "success": True
+        }
 
     except Exception as e:
         print(f"Chat error: {e}")

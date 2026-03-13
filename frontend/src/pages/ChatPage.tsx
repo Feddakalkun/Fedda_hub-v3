@@ -83,8 +83,8 @@ export const ChatPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // IF_AI_tools models (hardcoded for now)
-                const models = ['qwen2.5-3b-instruct', 'llama-3.2-3b'];
+                // Ollama models (hardcoded - user pulls via JupyterLab terminal)
+                const models = ['qwen2.5:3b', 'llama3.2:3b'];
                 setAvailableModels(models);
                 setSelectedModel(models[0]);
 

@@ -165,5 +165,11 @@
     "url": "https://github.com/jtydhr88/ComfyUI-qwenmultiangle.git",
     "folder": "comfyui-qwenmultiangle",
     "note": "QwenMultiangleCameraNode — multi-angle camera control for qwen-multiangle workflow"
+  },
+  {
+    "name": "ComfyUI-IF_AI_tools",
+    "url": "https://github.com/if-ai/ComfyUI-IF_AI_tools.git",
+    "folder": "ComfyUI-IF_AI_tools",
+    "note": "LLM nodes (Qwen, Llama, etc.) — replaces Ollama for chat functionality"
   }
 ]

@@ -65,20 +65,6 @@ MODELS = {
             "comfyui/vae/ae.safetensors"
         ],
         "download_cmd": "download-models.sh vae"
-    },
-    "ollama-qwen": {
-        "name": "Ollama Qwen 2.5 3B",
-        "size": "2 GB",
-        "files": [],  # Ollama models checked differently
-        "download_cmd": "ollama pull qwen2.5:3b",
-        "check_cmd": "ollama list | grep qwen2.5:3b"
-    },
-    "ollama-llava": {
-        "name": "Ollama Llava",
-        "size": "4.7 GB",
-        "files": [],
-        "download_cmd": "ollama pull llava",
-        "check_cmd": "ollama list | grep llava"
     }
 }
 

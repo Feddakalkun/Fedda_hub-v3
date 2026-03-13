@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Camera } from 'lucide-react';
-import { ModelDownloader } from '../components/ModelDownloader';
+import { ModelDownloadButton } from '../components/ModelDownloadButton';
 import { ImageGallery } from '../components/image/ImageGallery';
 import { ImageUpload } from '../components/image/ImageUpload';
 import { AngleCompass } from '../components/image/AngleCompass';
@@ -169,7 +169,13 @@ export const QwenAnglePage = ({ modelId }: QwenAnglePageProps) => {
             leftPaneClassName="p-4"
             leftPane={
                 <>
-                    <ModelDownloader modelGroup="qwen-angle" />
+                    <div className="px-4 pt-4 space-y-2">
+                        <ModelDownloadButton modelId="qwen-edit" />
+                        <ModelDownloadButton modelId="sam" />
+                        <ModelDownloadButton modelId="florence2" />
+                        <ModelDownloadButton modelId="clip" />
+                        <ModelDownloadButton modelId="vae" />
+                    </div>
 
                     <div className="mt-4 space-y-4">
                         <CatalogCard className="p-6 shadow-xl">

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Image as ImageIcon, Loader2, Mic, Square, Volume2, VolumeX } from 'lucide-react';
+import { ModelDownloadButton } from '../components/ModelDownloadButton';
 import { assistantService } from '../services/assistantService';
 import { comfyService } from '../services/comfyService';
 import { ollamaService } from '../services/ollamaService';
@@ -464,7 +465,12 @@ export const ChatPage = () => {
                 </div>
             )}
 
-            <div className="px-6 pt-4 pb-2">
+            <div className="px-6 pt-4 pb-2 space-y-3">
+                <div className="flex gap-2">
+                    <ModelDownloadButton modelId="ollama-qwen" label="Qwen 2.5 3B" className="flex-1" />
+                    <ModelDownloadButton modelId="ollama-llava" label="Llava Vision" className="flex-1" />
+                </div>
+
                 <CatalogCard className="p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2 bg-[#0a0a0f] border border-white/10 rounded-lg px-2 py-1">

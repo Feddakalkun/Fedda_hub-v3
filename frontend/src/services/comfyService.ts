@@ -211,8 +211,7 @@ class ComfyUIService {
             }
         }
 
-        console.warn('Could not find LoRA list from ComfyUI');
-        addUiLog('warn', 'comfy', 'Could not find LoRA list from ComfyUI');
+        // Silently return empty array if no LoRAs found (ComfyUI may not be ready yet)
         return [];
     }
 

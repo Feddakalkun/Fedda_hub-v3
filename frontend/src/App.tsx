@@ -142,6 +142,13 @@ function App() {
     }
   }, [showLanding, activeTab, activeSubTab]);
 
+  // Auto-clear activeSubTab when switching to non-model tabs
+  useEffect(() => {
+    if (!isModelTab(activeTab) && activeSubTab !== null) {
+      setActiveSubTab(null);
+    }
+  }, [activeTab, activeSubTab]);
+
   useEffect(() => {
     addUiLog('info', 'app', 'FEDDA UI initialized');
 

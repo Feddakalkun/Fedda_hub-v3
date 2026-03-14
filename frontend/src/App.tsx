@@ -217,6 +217,9 @@ function App() {
         const hasCurrent = models.some((m) => m.id === prev);
         return hasCurrent ? prev : (models[0]?.id || null);
       });
+    } else {
+      // Clear subtab for non-model tabs (library, settings, etc.)
+      setActiveSubTab(null);
     }
   };
 

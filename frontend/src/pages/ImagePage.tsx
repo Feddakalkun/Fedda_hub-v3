@@ -1,7 +1,7 @@
 // Image Generation Page - Tab Container
 import { useState, useCallback, useEffect } from 'react';
 import { Sparkles, Image, Paintbrush, Layers, FileText } from 'lucide-react';
-import { ModelDownloadButton } from '../components/ModelDownloadButton';
+import { ModelDownloader } from '../components/ModelDownloader';
 import { ImageGallery } from '../components/image/ImageGallery';
 import { GenerateTab } from '../components/image/GenerateTab';
 import { HQPortraitTab } from '../components/image/HQPortraitTab';
@@ -54,11 +54,9 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
             leftPaneClassName="p-4"
             leftPane={
                 <>
-                    <div className="px-4 pt-4">
-                        <ModelDownloadButton modelId="z-image" />
-                    </div>
+                    <ModelDownloader modelGroup="z-image" />
 
-                    <div className="mt-4">
+                    <div className="px-4 mt-4">
                         <div style={{ display: activeMode === 'generate' ? undefined : 'none' }}>
                             <GenerateTab isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
                         </div>

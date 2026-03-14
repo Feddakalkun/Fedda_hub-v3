@@ -74,20 +74,29 @@ class ComfyUIService {
         if (!response.ok) {
             // Try to extract detailed error from ComfyUI response
             let errorMsg = `Failed to queue prompt: ${response.statusText}`;
+            let errorDetails = undefined;
             try {
                 const errorData = await response.json();
                 if (errorData?.error?.message) {
                     errorMsg = errorData.error.message;
                 }
                 if (errorData?.node_errors) {
-                    const nodeErrors = Object.values(errorData.node_errors) as any[];
+                    const nodeErrors = Object.entries(errorData.node_errors) as any[];
                     if (nodeErrors.length > 0) {
-                        const first = nodeErrors[0];
-                        errorMsg = first?.errors?.[0]?.message || errorMsg;
+                        const [nodeId, nodeError] = nodeErrors[0];
+                        const firstError = nodeError?.errors?.[0];
+                        if (firstError) {
+                            // Build detailed error message
+                            const nodeClass = nodeError.class_type || 'Unknown';
+                            const errorType = firstError.type || 'error';
+                            const errorMessage = firstError.message || 'Unknown error';
+                            errorMsg = `Node #${nodeId} (${nodeClass}): ${errorMessage}`;
+                            errorDetails = JSON.stringify(firstError.details || {}, null, 2);
+                        }
                     }
                 }
             } catch { }
-            addUiLog('error', 'comfy', 'Queue prompt failed', errorMsg);
+            addUiLog('error', 'comfy', 'Queue prompt failed', `${errorMsg}\n${errorDetails || ''}`);
             throw new Error(errorMsg);
         }
 
@@ -227,9 +236,7 @@ class ComfyUIService {
             const styleList = data['Load Styles CSV']?.input?.required?.styles?.[0] || [];
             return styleList;
         } catch (error) {
-            console.error('Failed to load styles:', error);
-            addUiLog('warn', 'comfy', 'Failed to load styles', error);
-            // Return defaults if failed
+            // Silently return defaults - ComfyUI may be starting up
             return ['No Style', 'Photographic', 'Cinematic', 'Anime', 'Digital Art'];
         }
     }
@@ -241,8 +248,7 @@ class ComfyUIService {
             const data = await response.json();
             return data.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
         } catch (error) {
-            console.error('Failed to load checkpoints:', error);
-            addUiLog('warn', 'comfy', 'Failed to load checkpoints', error);
+            // Silently return empty - ComfyUI may be starting up
             return [];
         }
     }
@@ -289,8 +295,7 @@ class ComfyUIService {
         this.ws = new WebSocket(`${COMFY_API.WS_URL}?clientId=${this.clientId}`);
 
         this.ws.onopen = () => {
-            console.log('WebSocket connected to ComfyUI');
-            addUiLog('success', 'websocket', 'Connected to ComfyUI websocket');
+            // Silently connect - status shown in UI indicator
         };
 
         this.ws.onmessage = (event) => {
@@ -386,8 +391,7 @@ class ComfyUIService {
             });
             console.log('âœ… ComfyUI Memory Freed');
         } catch (error) {
-            console.error('Failed to free ComfyUI memory:', error);
-            addUiLog('warn', 'comfy', 'Failed to free ComfyUI memory', error);
+            // Silently ignore - not critical for user experience
         }
     }
 }

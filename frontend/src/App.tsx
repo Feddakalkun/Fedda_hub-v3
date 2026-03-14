@@ -73,6 +73,7 @@ const readInitialUiState = (): UiStateSnapshot => {
   let storedSubTab: string | null = 'z-image';
   let landingDismissed = false;
 
+  // Read tab/subtab from localStorage (persists across sessions)
   try {
     const raw = localStorage.getItem(UI_STATE_KEY);
     if (raw) {
@@ -86,11 +87,18 @@ const readInitialUiState = (): UiStateSnapshot => {
         } else if (parsed.activeSubTab === null) {
           storedSubTab = null;
         }
-        landingDismissed = parsed.landingDismissed === true;
       }
     }
   } catch {
     // ignore broken storage payloads
+  }
+
+  // Read landingDismissed from sessionStorage (only persists on refresh, not new tabs)
+  try {
+    const sessionRaw = sessionStorage.getItem('fedda_landing_dismissed');
+    landingDismissed = sessionRaw === 'true';
+  } catch {
+    // ignore sessionStorage errors
   }
 
   const hashState = parseHash();
@@ -118,17 +126,24 @@ function App() {
   const [errorCount, setErrorCount] = useState(0);
 
   useEffect(() => {
+    // Save tab/subtab to localStorage (persists across sessions)
     try {
       localStorage.setItem(
         UI_STATE_KEY,
         JSON.stringify({
-          landingDismissed: !showLanding,
           activeTab,
           activeSubTab,
         })
       );
     } catch {
       // ignore localStorage write errors
+    }
+
+    // Save landing dismissed to sessionStorage (only persists on refresh, not new tabs)
+    try {
+      sessionStorage.setItem('fedda_landing_dismissed', String(!showLanding));
+    } catch {
+      // ignore sessionStorage write errors
     }
   }, [showLanding, activeTab, activeSubTab]);
 
@@ -152,8 +167,15 @@ function App() {
   useEffect(() => {
     addUiLog('info', 'app', 'FEDDA UI initialized');
 
+    // Only log critical errors, not connection failures
     const onError = (event: ErrorEvent) => {
-      addUiLog('error', 'window', event.message || 'Unhandled runtime error', {
+      const msg = event.message || '';
+      // Skip network/fetch errors (ComfyUI startup noise)
+      if (msg.includes('fetch') || msg.includes('NetworkError') || msg.includes('Failed to')) {
+        return;
+      }
+      // Only log real UI/component errors
+      addUiLog('error', 'window', msg, {
         file: event.filename,
         line: event.lineno,
         column: event.colno,
@@ -162,8 +184,19 @@ function App() {
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      const errorMsg = reason instanceof Error ? reason.message : String(reason);
+
+      // Skip all fetch/connection errors (too noisy during startup)
+      if (errorMsg.includes('fetch') ||
+          errorMsg.includes('NetworkError') ||
+          errorMsg.includes('Failed to') ||
+          errorMsg.includes('connection')) {
+        return;
+      }
+
+      // Only log critical promise rejections
       if (reason instanceof Error) {
-        addUiLog('error', 'promise', reason.message || 'Unhandled promise rejection', reason.stack || reason.message);
+        addUiLog('error', 'promise', reason.message, reason.stack || reason.message);
       } else {
         addUiLog('error', 'promise', 'Unhandled promise rejection', reason);
       }

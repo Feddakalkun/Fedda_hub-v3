@@ -34,7 +34,7 @@ This workflow automatically triggers a Docker image rebuild when you push change
 
 If auto-trigger fails, manually trigger Docker build:
 ```bash
-cd H:\Final\060326\comfyuifeddafront-runpod
+cd /path/to/your/comfyuifeddafront
 git commit --allow-empty -m "Trigger rebuild"
 git push
 ```

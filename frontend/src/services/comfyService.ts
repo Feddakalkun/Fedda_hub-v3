@@ -24,9 +24,9 @@ class ComfyUIService {
                 method: 'GET',
             });
             return response.ok;
-        } catch (error) {
-            console.error('ComfyUI connection failed:', error);
-            addUiLog('error', 'comfy', 'ComfyUI connection failed', error);
+        } catch {
+            // Silently fail - ComfyUI may be starting up or offline
+            // Status indicator will show "Offline" without spamming errors
             return false;
         }
     }
@@ -37,7 +37,7 @@ class ComfyUIService {
     async getSystemStats(): Promise<any> {
         const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.SYSTEM_STATS}`);
         if (!response.ok) {
-            addUiLog('error', 'comfy', 'Failed to fetch system stats', { status: response.status, statusText: response.statusText });
+            // Silently fail - status indicator already shows offline state
             throw new Error('Failed to fetch system stats');
         }
         return await response.json();
@@ -48,9 +48,8 @@ class ComfyUIService {
             const response = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.HARDWARE_STATS}`);
             if (!response.ok) return null;
             return await response.json();
-        } catch (error) {
-            console.error('Failed to fetch hardware stats:', error);
-            addUiLog('warn', 'comfy', 'Failed to fetch hardware stats', error);
+        } catch {
+            // Silently fail - backend may be starting up
             return null;
         }
     }

@@ -313,15 +313,13 @@ class ComfyUIService {
                         }
                         break;
                 }
-            } catch (error) {
-                console.error('Failed to parse WebSocket message:', error);
-                addUiLog('warn', 'websocket', 'Failed to parse websocket message', error);
+            } catch {
+                // Silently ignore parse errors - may occur during startup
             }
         };
 
-        this.ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            addUiLog('error', 'websocket', 'WebSocket error', error);
+        this.ws.onerror = () => {
+            // Silently ignore WebSocket errors - connection status shown in UI
         };
 
         return () => {

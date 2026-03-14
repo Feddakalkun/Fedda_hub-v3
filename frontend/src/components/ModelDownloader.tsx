@@ -25,6 +25,8 @@ const MODEL_GROUP_LABELS: Record<string, string> = {
     'z-image': 'Z-Image Turbo',
     'ace-step': 'ACE-Step 1.5',
     'qwen-angle': 'Qwen Angle',
+    'lipsync': 'Lipsync (WAN + LTX)',
+    'scene-builder': 'Scene Builder (WAN)',
 };
 
 export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: ModelDownloaderProps) => {

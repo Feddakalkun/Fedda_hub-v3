@@ -996,6 +996,31 @@ REQUIRED_MODELS = {
             "path": "loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
             "size_gb": 0.810
         }
+    ],
+    "lipsync": [
+        {
+            "id": "wan-infinite-unet",
+            "name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/WAN-22-repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+            "path": "diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+            "size_gb": 27.5
+        },
+        {
+            "id": "ltx-lipsync",
+            "name": "ltx-2-19b-dev-fp8.safetensors",
+            "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
+            "path": "checkpoints/ltx-2-19b-dev-fp8.safetensors",
+            "size_gb": 19.3
+        }
+    ],
+    "scene-builder": [
+        {
+            "id": "wan-high-unet",
+            "name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/WAN-22-repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+            "path": "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+            "size_gb": 27.5
+        }
     ]
 }
 

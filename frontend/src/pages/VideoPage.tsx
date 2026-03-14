@@ -1,6 +1,7 @@
 // Video Page - Lipsync + Scene Builder with video preview
 import { useState, useEffect, useRef } from 'react';
 import { Film } from 'lucide-react';
+import { ModelDownloader } from '../components/ModelDownloader';
 import { LipsyncTab } from '../components/video/LipsyncTab';
 import { SceneBuilderTab } from '../components/video/SceneBuilderTab';
 import { useComfyExecution } from '../contexts/ComfyExecutionContext';
@@ -67,11 +68,15 @@ export const VideoPage = ({ modelId }: VideoPageProps) => {
             leftWidthClassName="w-[380px]"
             leftPane={
                 <>
-                    <div style={{ display: modelId === 'lipsync' ? undefined : 'none' }}>
-                        <LipsyncTab />
-                    </div>
-                    <div style={{ display: modelId === 'scene-builder' ? undefined : 'none' }}>
-                        <SceneBuilderTab />
+                    <ModelDownloader modelGroup={modelId} />
+
+                    <div className="px-4 mt-4">
+                        <div style={{ display: modelId === 'lipsync' ? undefined : 'none' }}>
+                            <LipsyncTab />
+                        </div>
+                        <div style={{ display: modelId === 'scene-builder' ? undefined : 'none' }}>
+                            <SceneBuilderTab />
+                        </div>
                     </div>
                 </>
             }

@@ -1321,17 +1321,8 @@ class ModelDownloadRequest(BaseModel):
     model_id: str
 
 
-@app.post("/api/models/download")
-async def download_model(request: ModelDownloadRequest):
-    """Start downloading a specific model"""
-    try:
-        success = start_model_download(request.model_id)
-        if success:
-            return {"success": True, "message": f"Download started for {request.model_id}"}
-        else:
-            raise HTTPException(status_code=400, detail="Invalid model ID")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# NOTE: Duplicate /api/models/download endpoint removed - using the one with HF_TOKEN support above
+# Old endpoint used model_service which doesn't support gated HuggingFace models
 
 
 @app.get("/api/models/progress/{model_id}")

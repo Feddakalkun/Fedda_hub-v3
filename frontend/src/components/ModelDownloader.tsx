@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Download, Loader2, AlertTriangle } from 'lucide-react';
 import { BACKEND_API } from '../config/api';
 import { useToast } from './ui/Toast';
+import { getStoredHFToken } from './HFTokenSettings';
 
 interface ModelInfo {
     id: string;
@@ -106,9 +107,18 @@ export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: Model
         const totalSizeGB = missing.reduce((acc, m) => acc + (m.size_gb || 0), 0);
         toast(`Starting download of ${missing.length} model(s) for ${groupLabel} (~${totalSizeGB.toFixed(1)}GB total)...`, 'info');
 
+        // Get HF token from localStorage if available
+        const hfToken = getStoredHFToken();
+
         for (const m of missing) {
             try {
-                const resp = await fetch(`${BACKEND_API.BASE_URL}/api/models/download?model_id=${m.id}&group=${modelGroup}`, { method: 'POST' });
+                // Build URL with optional HF token
+                let url = `${BACKEND_API.BASE_URL}/api/models/download?model_id=${m.id}&group=${modelGroup}`;
+                if (hfToken) {
+                    url += `&hf_token=${encodeURIComponent(hfToken)}`;
+                }
+
+                const resp = await fetch(url, { method: 'POST' });
                 const data = await resp.json();
                 if (!data.success) {
                     console.error(`Failed to start download for ${m.id}:`, data.error);

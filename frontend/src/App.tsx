@@ -14,6 +14,7 @@ import { LandingPage } from './pages/LandingPage';
 import { ConsoleLogsPage } from './pages/ConsoleLogsPage';
 import { ToastProvider } from './components/ui/Toast';
 import { OllamaQuickPull } from './components/OllamaQuickPull';
+import { HFTokenSettings } from './components/HFTokenSettings';
 import { ComfyExecutionProvider } from './contexts/ComfyExecutionContext';
 import { ExecutionStatusBar } from './components/ExecutionStatusBar';
 import { MODELS } from './config/api';
@@ -337,6 +338,7 @@ function App() {
                 >
                   {errorCount > 0 ? `Errors: ${errorCount}` : 'No Errors'}
                 </button>
+                <HFTokenSettings />
                 <OllamaQuickPull />
               </div>
             </header>

@@ -1026,7 +1026,7 @@ REQUIRED_MODELS = {
 
 download_progress = {} # { model_id: { downloaded: 0, total: 0, status: 'idle' } }
 
-def start_download(model_info):
+def start_download(model_info, hf_token=None):
     """Download a model using curl (fast, resume-capable) with file-size progress tracking."""
     import time
     model_id = model_info['id']
@@ -1047,11 +1047,11 @@ def start_download(model_info):
             '-S', '-s'
         ]
 
-        # Add HF token if available (for gated/private models)
-        hf_token = os.getenv('HF_TOKEN')
-        if hf_token and 'huggingface.co' in model_info['url']:
-            curl_cmd.extend(['-H', f'Authorization: Bearer {hf_token}'])
-            print(f"[DOWNLOAD] Using HF_TOKEN for authentication")
+        # Add HF token if available (from UI or environment variable)
+        token = hf_token or os.getenv('HF_TOKEN')
+        if token and 'huggingface.co' in model_info['url']:
+            curl_cmd.extend(['-H', f'Authorization: Bearer {token}'])
+            print(f"[DOWNLOAD] Using HF_TOKEN for authentication (source: {'UI' if hf_token else 'ENV'})")
 
         curl_cmd.append(model_info['url'])
 
@@ -1147,7 +1147,7 @@ async def get_models_status(group: str = "z-image"):
     return {"success": True, "models": results}
 
 @app.post("/api/models/download")
-async def trigger_download(model_id: str, group: str = "z-image"):
+async def trigger_download(model_id: str, group: str = "z-image", hf_token: Optional[str] = None):
     """Trigger background download for a specific model."""
     if group not in REQUIRED_MODELS:
         return {"success": False, "error": "Unknown group"}
@@ -1167,8 +1167,8 @@ async def trigger_download(model_id: str, group: str = "z-image"):
             except Exception as e:
                 print(f"Failed to auto-purge {target_path}: {e}")
 
-    # Start thread
-    thread = threading.Thread(target=start_download, args=(model_to_download,))
+    # Start thread with optional HF token
+    thread = threading.Thread(target=start_download, args=(model_to_download, hf_token))
     thread.start()
 
     return {"success": True, "message": f"Download started for {model_id}"}

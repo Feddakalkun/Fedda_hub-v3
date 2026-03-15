@@ -1037,15 +1037,23 @@ def start_download(model_info):
     download_progress[model_id] = {"status": "downloading", "downloaded": 0, "total": total_bytes, "name": model_info['name']}
 
     try:
+        # Build curl command with optional Hugging Face token
         curl_cmd = [
             'curl', '-L', '-C', '-',
             '-o', str(target_path),
             '--connect-timeout', '30',
             '--retry', '3',
             '--retry-delay', '5',
-            '-S', '-s',
-            model_info['url']
+            '-S', '-s'
         ]
+
+        # Add HF token if available (for gated/private models)
+        hf_token = os.getenv('HF_TOKEN')
+        if hf_token and 'huggingface.co' in model_info['url']:
+            curl_cmd.extend(['-H', f'Authorization: Bearer {hf_token}'])
+            print(f"[DOWNLOAD] Using HF_TOKEN for authentication")
+
+        curl_cmd.append(model_info['url'])
 
         print(f"[DOWNLOAD] Starting {model_info['name']} ({model_info['size_gb']}GB) from {model_info['url'][:80]}...")
         process = subprocess.Popen(curl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

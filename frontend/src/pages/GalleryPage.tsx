@@ -33,6 +33,7 @@ export const GalleryPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'images' | 'videos'>('all');
     const [sortBy, setSortBy] = useState<'date' | 'model' | 'name'>('date');
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     // RunPod Job Tracker
     const { runpodJobs, isAnimatingRunPod, startRunPodAnimation, dismissJob } = useRunPodJobs(() => {
@@ -361,7 +362,13 @@ export const GalleryPage = () => {
                                     onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
                                 />
                             ) : (
-                                <img src={file.url} alt={file.filename} draggable className="w-full h-full object-cover" />
+                                <img
+                                    src={file.url}
+                                    alt={file.filename}
+                                    draggable
+                                    className="w-full h-full object-cover cursor-pointer"
+                                    onClick={() => setLightboxImage(file.url)}
+                                />
                             )}
 
                             {/* Video badge */}
@@ -396,6 +403,27 @@ export const GalleryPage = () => {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Lightbox */}
+            {lightboxImage && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-200"
+                    onClick={() => setLightboxImage(null)}
+                >
+                    <button
+                        onClick={() => setLightboxImage(null)}
+                        className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                    <img
+                        src={lightboxImage}
+                        alt="Full size"
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    />
                 </div>
             )}
         </CatalogShell>

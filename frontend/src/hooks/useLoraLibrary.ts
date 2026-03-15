@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useToast } from '../components/ui/Toast';
 import { BACKEND_API } from '../config/api';
-import { LORA_CATALOG, type LoraEntry } from '../config/loras';
+import { FREE_LORAS, type LoRAInfo } from '../config/loras';
 
 const api = (endpoint: string) => `${BACKEND_API.BASE_URL}${endpoint}`;
 
+// Legacy type alias for backwards compatibility
+type LoraEntry = LoRAInfo & { installed?: boolean; isPremium?: boolean; downloadUrl?: string };
+
 export const useLoraLibrary = () => {
     const { toast } = useToast();
-    const [loras, setLoras] = useState<LoraEntry[]>(LORA_CATALOG);
+    const [loras, setLoras] = useState<LoraEntry[]>(FREE_LORAS.map(l => ({ ...l, downloadUrl: l.url, isPremium: false })));
     const [downloading, setDownloading] = useState<Record<string, number>>({}); // id -> progress %
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);

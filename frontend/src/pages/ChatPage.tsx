@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Image as ImageIcon, Loader2, Mic, Square, Volume2, VolumeX } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Image as ImageIcon, Loader2, Mic, Square, Volume2, VolumeX, X } from 'lucide-react';
 import { assistantService } from '../services/assistantService';
 import { comfyService } from '../services/comfyService';
 import ReactMarkdown from 'react-markdown';

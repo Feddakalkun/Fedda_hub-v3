@@ -144,6 +144,32 @@ if (-not $AllGood) {
     exit 1
 }
 
+# Ollama Check (Warning if missing)
+if (-not (Test-Command "ollama")) {
+    Write-Host ""
+    Write-Host "  ⚠ OLLAMA NOT DETECTED" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Ollama is needed for the AI chat feature. Without it:" -ForegroundColor Yellow
+    Write-Host "    - Agent Chat (text-to-speech, image caption) won't work" -ForegroundColor Gray
+    Write-Host "    - Image generation, video, audio features WILL work normally" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Options:" -ForegroundColor White
+    Write-Host "    1) Continue install (skip AI chat)" -ForegroundColor Gray
+    Write-Host "    2) Cancel and get Ollama first (recommended)" -ForegroundColor Gray
+    Write-Host ""
+    $OllamaChoice = Read-Host "  Enter 1 or 2 (default: 1)"
+    
+    if ($OllamaChoice -eq "2") {
+        Write-Host ""
+        Write-Host "  Getting Ollama from https://ollama.ai" -ForegroundColor Cyan
+        Write-Host "  Download and install, then run this installer again." -ForegroundColor White
+        Write-Host ""
+        Read-Host "  Press Enter to exit"
+        exit 0
+    }
+    Write-Host "  Continuing install without Ollama..." -ForegroundColor Yellow
+}
+
 # Confirm
 Write-Host "  All system tools detected. Root: $RootPath" -ForegroundColor Gray
 Write-Host ""

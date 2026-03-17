@@ -38,7 +38,7 @@ CORE_FOLDERS = {
     "ComfyUI-Inpaint-CropAndStitch",
     "ComfyUI_LayerStyle",
     "ComfyUI-Styles_CSV_Loader",
-    "ComfyUI-qwenmultiangle",
+    "comfyui-qwenmultiangle",
     "ComfyUI-VideoHelperSuite",
     "ComfyUI-WanVideoWrapper",
     "ComfyUI-IF_AI_tools",

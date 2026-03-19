@@ -48,7 +48,7 @@ set "UPDATE_EXIT=%errorlevel%"
 if %UPDATE_EXIT% equ 0 (
     echo [OK] Update completed successfully.
 ) else (
-    echo [WARN] Update check failed ^(error code %UPDATE_EXIT%^) - launching anyway.
+    echo [WARN] Update check failed (error code %UPDATE_EXIT%) - launching anyway.
 )
 echo.
 
@@ -67,7 +67,7 @@ if "%MODE%"=="portable" (
     )
 ) else (
     where ollama >nul 2>nul
-    if not errorlevel 1 (
+    if %errorlevel% equ 0 (
         echo [2/5] Starting Ollama...
         start "" /B "%~f0" :svc_ollama
         timeout /t 2 /nobreak >nul

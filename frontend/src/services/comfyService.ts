@@ -1,4 +1,4 @@
-﻿// ComfyUI API Service
+// ComfyUI API Service
 import { COMFY_API, BACKEND_API } from '../config/api';
 import type { ComfyPrompt, ComfyQueueItem, ComfyHistoryItem } from '../types/comfy';
 import { addUiLog } from './uiLogger';
@@ -336,13 +336,20 @@ class ComfyUIService {
 
                 switch (data.type) {
                     case 'status':
-                        this._callbacks?.onStatus?.(data.data);
+                        // data.data has { status: { exec_info: { queue_remaining: 0 } } }
+                        this._callbacks?.onStatus?.(data.data?.status || data.data);
                         break;
                     case 'progress':
                         this._callbacks?.onProgress?.(data.data.node, data.data.value, data.data.max);
                         break;
                     case 'executing':
                         this._callbacks?.onExecuting?.(data.data.node);
+                        break;
+                    case 'execution_success':
+                    case 'execution_interrupted':
+                    case 'execution_error':
+                        // Force transition to done when prompt finishes or errors
+                        this._callbacks?.onExecuting?.(null);
                         break;
                     case 'executed':
                         if (data.data.prompt_id) {

@@ -89,6 +89,32 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
     const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const activePromptIdRef = useRef<string | null>(null);
     const cancelledRef = useRef(false);
+    const stateRef = useRef<ExecutionState>('idle');
+
+    // Helper to safely transition to done state
+    const transitionToDone = useCallback(() => {
+        setState('done');
+        stateRef.current = 'done';
+        setCurrentNodeName('Complete');
+        setProgress(100);
+        setIsDownloaderNode(false);
+
+        if (activePromptIdRef.current) {
+            setLastCompletedPromptId(activePromptIdRef.current);
+        }
+
+        if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+        doneTimerRef.current = setTimeout(() => {
+            setState('idle');
+            stateRef.current = 'idle';
+            setCurrentNodeName('');
+            setCurrentNodeId(null);
+            setProgress(0);
+            setCompletedNodes(0);
+            setTotalNodes(0);
+            executedNodesRef.current.clear();
+        }, 5000);
+    }, []);
 
     // Connect WebSocket once on mount
     useEffect(() => {
@@ -104,32 +130,12 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 }
 
                 if (!nodeId) {
-                    // null nodeId = workflow finished
-                    setState('done');
-                    setCurrentNodeName('Complete');
-                    setProgress(100);
-                    setIsDownloaderNode(false);
-
-                    // Backup: ensure lastCompletedPromptId is set even if 'executed' event was missed
-                    // (happens on first run when WebSocket reconnects due to React Strict Mode)
-                    if (activePromptIdRef.current) {
-                        setLastCompletedPromptId(activePromptIdRef.current);
-                    }
-
-                    // Fade to idle after 5s
-                    doneTimerRef.current = setTimeout(() => {
-                        setState('idle');
-                        setCurrentNodeName('');
-                        setCurrentNodeId(null);
-                        setProgress(0);
-                        setCompletedNodes(0);
-                        setTotalNodes(0);
-                        executedNodesRef.current.clear();
-                    }, 5000);
+                    transitionToDone();
                     return;
                 }
 
                 setState('executing');
+                stateRef.current = 'executing';
                 setCurrentNodeId(nodeId);
                 setError(null);
 
@@ -175,15 +181,15 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             },
 
             onStatus: (data) => {
-                // Check for errors in status messages
-                if (data?.exec_info?.queue_remaining === 0 && state === 'executing') {
-                    // Queue empty while we were executing - might have errored
+                // Check if queue empty while we were executing
+                if (data?.exec_info?.queue_remaining === 0 && stateRef.current === 'executing') {
+                    transitionToDone();
                 }
             },
         });
 
         return () => disconnect();
-    }, []);
+    }, [transitionToDone]);
 
     // Cancel/interrupt the current execution
     const cancelExecution = useCallback(async () => {
@@ -196,6 +202,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 doneTimerRef.current = null;
             }
             setState('idle');
+            stateRef.current = 'idle';
             setCurrentNodeName('');
             setCurrentNodeId(null);
             setProgress(0);
@@ -214,6 +221,12 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
         // Reset cancelled flag so WS messages work again
         cancelledRef.current = false;
 
+        // Clear previous done timer so it doesn't interrupt this run
+        if (doneTimerRef.current) {
+            clearTimeout(doneTimerRef.current);
+            doneTimerRef.current = null;
+        }
+
         // Build node map from workflow
         const nodeMap = buildNodeMap(workflow);
         nodeMapRef.current = nodeMap;
@@ -226,6 +239,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
 
         // Reset state
         setState('executing');
+        stateRef.current = 'executing';
         setCurrentNodeName('Queuing...');
         setCurrentNodeId(null);
         setProgress(0);
@@ -256,6 +270,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             } catch {}
 
             setState('error');
+            stateRef.current = 'error';
             setError(execError);
             setCurrentNodeName('Error');
             throw err;

@@ -73,9 +73,9 @@ export const ImageGallery = ({ generatedImages, setGeneratedImages, isGenerating
         }
     }, [lastOutputImages]);
 
-    // Clear isGenerating when workflow finishes
+    // Clear isGenerating when workflow finishes or resets
     useEffect(() => {
-        if (execState === 'done') {
+        if (execState === 'done' || execState === 'idle' || execState === 'error') {
             setIsGenerating(false);
         }
     }, [execState]);

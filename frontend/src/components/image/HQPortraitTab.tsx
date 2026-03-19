@@ -118,38 +118,45 @@ export const HQPortraitTab = ({ isGenerating, setIsGenerating }: HQPortraitTabPr
             // Detailer seed
             workflow["102"].inputs.seed = Math.floor(Math.random() * 1000000000000000);
 
-            if (dualPersonMode && personA.lora && personB.lora) {
+            if (dualPersonMode) {
                 // Dual person mode
+                const loraA = personA.lora || availableLoras[0] || 'none';
+                const strA = personA.lora ? personA.strength : 0;
+                const loraB = personB.lora || availableLoras[0] || 'none';
+                const strB = personB.lora ? personB.strength : 0;
+
                 // Node 125: Person A LoRA (Main)
-                workflow["125"].inputs.lora_name = personA.lora;
-                workflow["125"].inputs.strength_model = personA.strength;
-                workflow["125"].inputs.strength_clip = personA.strength;
+                workflow["125"].inputs.lora_name = loraA;
+                workflow["125"].inputs.strength_model = strA;
+                workflow["125"].inputs.strength_clip = strA;
 
                 // Node 124: Person B LoRA (Detailer)
-                workflow["124"].inputs.lora_name = personB.lora;
-                workflow["124"].inputs.strength_model = personB.strength;
-                workflow["124"].inputs.strength_clip = personB.strength;
+                workflow["124"].inputs.lora_name = loraB;
+                workflow["124"].inputs.strength_model = strB;
+                workflow["124"].inputs.strength_clip = strB;
 
                 // Person labels for Florence2
-                workflow["53"].inputs.text_input = personA.label;
+                workflow["53"].inputs.text_input = personA.label || "person";
                 // Person index hardcoded in workflow
 
                 // Detailer face descriptions
-                workflow["65"].inputs.text = personA.description;
+                if (personA.description) workflow["65"].inputs.text = personA.description;
 
                 // Save to dual person path
                 workflow["145"].inputs.filename_prefix = "FEDDA/Image/z-image-2person";
             } else {
                 // Single person mode - use person A if set
-                if (personA.lora) {
-                    workflow["125"].inputs.lora_name = personA.lora;
-                    workflow["125"].inputs.strength_model = personA.strength;
-                    workflow["125"].inputs.strength_clip = personA.strength;
-                    // Same LoRA for detailer
-                    workflow["124"].inputs.lora_name = personA.lora;
-                    workflow["124"].inputs.strength_model = personA.strength;
-                    workflow["124"].inputs.strength_clip = personA.strength;
-                }
+                const loraA = personA.lora || availableLoras[0] || 'none';
+                const strA = personA.lora ? personA.strength : 0;
+
+                workflow["125"].inputs.lora_name = loraA;
+                workflow["125"].inputs.strength_model = strA;
+                workflow["125"].inputs.strength_clip = strA;
+                
+                // Same LoRA for detailer
+                workflow["124"].inputs.lora_name = loraA;
+                workflow["124"].inputs.strength_model = strA;
+                workflow["124"].inputs.strength_clip = strA;
 
                 if (personA.description) {
                     workflow["65"].inputs.text = personA.description;

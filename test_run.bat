@@ -60,7 +60,6 @@ echo.
 if "%MODE%"=="portable" (
     if exist "%BASE_DIR%\ollama_embeded\ollama.exe" (
         echo [2/5] Starting Ollama...
-        start "" /B "%~f0" :svc_ollama
         timeout /t 2 /nobreak >nul
     ) else (
         echo [2/5] Ollama not found — AI chat won't work
@@ -69,7 +68,6 @@ if "%MODE%"=="portable" (
     where ollama >nul 2>nul
     if not errorlevel 1 (
         echo [2/5] Starting Ollama...
-        start "" /B "%~f0" :svc_ollama
         timeout /t 2 /nobreak >nul
     ) else (
         echo [2/5] Ollama not found — AI chat won't work
@@ -78,12 +76,10 @@ if "%MODE%"=="portable" (
 
 :: 3. Start ComfyUI
 echo [3/5] Starting ComfyUI (Port 8199)...
-start "" /B "%~f0" :svc_comfy
 timeout /t 3 /nobreak >nul
 
 :: 4. Start FastAPI Backend
 echo [4/5] Starting Backend (Port 8000)...
-start "" /B "%~f0" :svc_backend
 timeout /t 2 /nobreak >nul
 
 :: 5. Start Frontend (runs in this window)

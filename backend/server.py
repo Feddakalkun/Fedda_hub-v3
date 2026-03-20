@@ -1373,7 +1373,17 @@ async def chat_with_llm(request: ChatRequest):
     if is_runpod:
         # RunPod: route through ComfyUI IF_AI_tools
         try:
-            workflow_path = Path(__file__).parent.parent / "public" / "workflows" / "if-ai-chat.json"
+            # Try multiple paths (Docker vs local layout)
+            for p in [
+                Path(__file__).parent.parent / "frontend" / "dist" / "workflows" / "if-ai-chat.json",  # Docker
+                Path(__file__).parent.parent / "public" / "workflows" / "if-ai-chat.json",              # Local
+                Path(__file__).parent.parent / "frontend" / "public" / "workflows" / "if-ai-chat.json", # Dev
+            ]:
+                if p.exists():
+                    workflow_path = p
+                    break
+            else:
+                return {"success": False, "error": "Chat workflow file not found"}
             workflow = json.loads(workflow_path.read_text())
             prompt = "\n".join([f"{m['role']}: {m['content']}" for m in request.messages])
             workflow["1"]["inputs"]["prompt"] = prompt
@@ -1390,10 +1400,10 @@ async def chat_with_llm(request: ChatRequest):
                     outputs = history[prompt_id]["outputs"]
                     if "2" in outputs and "text" in outputs["2"]:
                         return {"response": outputs["2"]["text"][0], "success": True}
-            raise HTTPException(status_code=504, detail="LLM response timeout")
+            return {"success": False, "error": "LLM response timeout (60s)"}
         except Exception as e:
             print(f"Chat error (RunPod): {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            return {"success": False, "error": str(e)}
     else:
         # Local: call Ollama directly
         try:

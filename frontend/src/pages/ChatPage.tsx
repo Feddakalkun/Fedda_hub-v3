@@ -211,7 +211,7 @@ export const ChatPage = () => {
             setMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: 'assistant',
-                content: "Sorry, I had trouble connecting to the brain (Ollama). Is it running?",
+                content: "Sorry, I couldn't reach the AI model. Check Settings to make sure a language model is available.",
                 timestamp: Date.now(),
                 type: 'text'
             }]);

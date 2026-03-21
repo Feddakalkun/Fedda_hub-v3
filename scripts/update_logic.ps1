@@ -1,5 +1,5 @@
 # ============================================================================
-# FEDDA Update & Repair — auto-detects portable vs lite mode
+# FEDDA Update & Repair - auto-detects portable vs lite mode
 # ============================================================================
 
 param([switch]$SilentMode)
@@ -46,7 +46,7 @@ if (Test-Path $GitEmbedded) {
     $GitExe = "git"
 }
 
-# Fix dubious ownership errors (local config only — never modify user's global gitconfig)
+# Fix dubious ownership errors (local config only - never modify user's global gitconfig)
 $env:GIT_CONFIG_GLOBAL = Join-Path $RootPath ".gitconfig"
 & $GitExe config --file "$env:GIT_CONFIG_GLOBAL" --add safe.directory '*' 2>$null
 
@@ -57,7 +57,7 @@ if (-not (Test-Path $ComfyDir)) {
 }
 
 # ============================================================================
-# 1. CUSTOM NODES — install missing / update existing (from nodes.json)
+# 1. CUSTOM NODES - install missing / update existing (from nodes.json)
 # ============================================================================
 $NodesConfigFile = Join-Path $RootPath "config\nodes.json"
 if (-not (Test-Path $NodesConfigFile)) {
@@ -183,7 +183,7 @@ if ($NeedNodeUpdate -or $HasMissing) {
 }
 
 # ============================================================================
-# 2. FRONTEND — npm install
+# 2. FRONTEND - npm install
 # ============================================================================
 Write-Host "`n[2/3] Updating frontend dependencies..." -ForegroundColor Yellow
 $FrontendDir = Join-Path $RootPath "frontend"
@@ -217,7 +217,7 @@ if (Test-Path $FrontendDir) {
             }
         }
     } else {
-        # Lite mode — use system npm
+        # Lite mode - use system npm
         & npm install 2>&1 | Out-Null
         Write-Host "  Frontend dependencies updated." -ForegroundColor Green
     }
@@ -226,7 +226,7 @@ if (Test-Path $FrontendDir) {
 }
 
 # ============================================================================
-# 3. CLEANUP — remove legacy files from older versions
+# 3. CLEANUP - remove legacy files from older versions
 # ============================================================================
 Write-Host "`n[3/3] Cleaning up legacy files..." -ForegroundColor Yellow
 

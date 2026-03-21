@@ -196,7 +196,7 @@ if (-not $AllGood) {
 # Ollama Check (Warning if not running)
 if (-not $OllamaRunning) {
     Write-Host ""
-    Write-Host "  ⚠ OLLAMA NOT RUNNING" -ForegroundColor Yellow
+    Write-Host "  [!] OLLAMA NOT RUNNING" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  Ollama is needed for the AI chat feature. Without it:" -ForegroundColor Yellow
     Write-Host "    - Agent Chat (text-to-speech, image caption) won't work" -ForegroundColor Gray

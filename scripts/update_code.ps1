@@ -1,6 +1,6 @@
 # ============================================================================
-# FEDDA Code Update — Fast, minimal, pulls latest code from GitHub
-# Used by auto-update in run.bat — focused on speed
+# FEDDA Code Update - Fast, minimal, pulls latest code from GitHub
+# Used by auto-update in run.bat - focused on speed
 # For full maintenance (custom nodes, deps), see update_logic.ps1
 # ============================================================================
 
@@ -28,7 +28,7 @@ if (Test-Path $GitEmbedded) {
     $GitExe = "git"
 }
 
-# Fix dubious ownership errors (local config only — never modify user's global gitconfig)
+# Fix dubious ownership errors (local config only - never modify user's global gitconfig)
 $env:GIT_CONFIG_GLOBAL = Join-Path $RootPath ".gitconfig"
 & $GitExe config --file "$env:GIT_CONFIG_GLOBAL" --add safe.directory '*' 2>$null
 
@@ -64,11 +64,11 @@ try {
     $ErrorActionPreference = "Stop"
     
     if (-not $SilentMode) {
-        Write-Host "  ✓ Code updated successfully." -ForegroundColor Green
+        Write-Host "  [OK] Code updated successfully." -ForegroundColor Green
     }
 } catch {
     if (-not $SilentMode) {
-        Write-Host "  ⚠ Git update failed: $_" -ForegroundColor Yellow
+        Write-Host "  [WARN] Git update failed: $_" -ForegroundColor Yellow
     }
     exit 1
 }
@@ -150,9 +150,9 @@ foreach ($folder in $LegacyFolders) {
 # ============================================================================
 if (-not $SilentMode) {
     if ($CleanedCount -gt 0) {
-        Write-Host "  ✓ Cleaned up $CleanedCount legacy items." -ForegroundColor Green
+        Write-Host "  [OK] Cleaned up $CleanedCount legacy items." -ForegroundColor Green
     } else {
-        Write-Host "  ✓ No legacy files to clean." -ForegroundColor Green
+        Write-Host "  [OK] No legacy files to clean." -ForegroundColor Green
     }
     Write-Host "`n===================================================" -ForegroundColor Green
     Write-Host "  UPDATE COMPLETE" -ForegroundColor Green

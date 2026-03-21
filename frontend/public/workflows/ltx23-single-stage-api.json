@@ -512,7 +512,7 @@
         "3940",
         0
       ],
-      "lora_name": "ltxv/ltx2/ltx-2.3-22b-distilled-lora-384.safetensors",
+      "lora_name": "ltxv\\ltx2\\ltx-2.3-22b-distilled-lora-384.safetensors",
       "strength_model": 0.5
     },
     "class_type": "LoraLoaderModelOnly",
@@ -526,7 +526,7 @@
         "3940",
         0
       ],
-      "lora_name": "ltxv/ltx2/ltx-2.3-22b-distilled-lora-384.safetensors",
+      "lora_name": "ltxv\\ltx2\\ltx-2.3-22b-distilled-lora-384.safetensors",
       "strength_model": 0.2
     },
     "class_type": "LoraLoaderModelOnly",

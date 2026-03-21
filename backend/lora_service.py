@@ -203,13 +203,13 @@ def refresh_comfy_models():
     try:
         res = requests.post("http://127.0.0.1:8199/refresh", timeout=5)
         if res.ok:
-            print("🔄 ComfyUI models refreshed.")
+            print("[OK] ComfyUI models refreshed.")
             return True
         else:
-            print(f"⚠️ ComfyUI refresh failed: {res.status_code}")
+            print(f"[WARN] ComfyUI refresh failed: {res.status_code}")
             return False
     except Exception as e:
-        print(f"⚠️ Could not contact ComfyUI: {e}")
+        print(f"[WARN] Could not contact ComfyUI: {e}")
         return False
 
 

@@ -1059,35 +1059,35 @@ REQUIRED_MODELS["ltx-i2v"] = [
         "name": "ltx-2.3-22b-dev.safetensors",
         "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-dev.safetensors",
         "path": "checkpoints/ltx-2.3-22b-dev.safetensors",
-        "size_gb": 46.1
+        "size_gb": 43.0
     },
     {
         "id": "ltx23-gemma3-text-encoder",
         "name": "comfy_gemma_3_12B_it.safetensors",
-        "url": "https://huggingface.co/Comfy-Org/gemma_3_text_encoders/resolve/main/comfy_gemma_3_12B_it.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it.safetensors",
         "path": "text_encoders/comfy_gemma_3_12B_it.safetensors",
-        "size_gb": 24.0
+        "size_gb": 22.71
     },
     {
         "id": "ltx23-distilled-lora",
         "name": "ltx-2.3-22b-distilled-lora-384.safetensors",
         "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384.safetensors",
         "path": "loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-384.safetensors",
-        "size_gb": 7.61
+        "size_gb": 7.1
     },
     {
         "id": "ltx23-spatial-upscaler",
         "name": "ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
         "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
         "path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
-        "size_gb": 0.97
+        "size_gb": 0.93
     },
     {
         "id": "ltx23-temporal-upscaler",
         "name": "ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
         "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
         "path": "latent_upscale_models/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
-        "size_gb": 0.26
+        "size_gb": 0.25
     }
 ]
 

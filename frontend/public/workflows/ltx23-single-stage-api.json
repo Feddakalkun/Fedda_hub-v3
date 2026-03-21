@@ -222,8 +222,7 @@
   },
   "4814": {
     "inputs": {
-      "noise_seed": 42,
-      "control_after_generate": "fixed"
+      "noise_seed": 42
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -399,8 +398,7 @@
       "a": [
         "4978",
         0
-      ],
-      "mode": 0
+      ]
     },
     "class_type": "CM_FloatToInt",
     "_meta": {
@@ -414,13 +412,12 @@
         0
       ],
       "prompt": "",
-      "negative_prompt": "",
-      "use_negative": "ltx-2.3-22b-dev.safetensors",
+      "enhance_prompt": false,
       "ckpt_name": "ltx-2.3-22b-dev.safetensors"
     },
     "class_type": "GemmaAPITextEncode",
     "_meta": {
-      "title": "\u00f0\u0178\u2026\u203a\u00f0\u0178\u2026\u00a3\u00f0\u0178\u2026\u00a7 Gemma API Text Encode - POSITIVE"
+      "title": "Gemma API Text Encode - POSITIVE"
     }
   },
   "4831": {
@@ -497,9 +494,12 @@
     "inputs": {
       "modality": "AUDIO",
       "cfg": 7,
-      "cfg_start_percent": 1,
-      "distilled_cfg": true,
-      "rescale_factor": 0.7
+      "stg": 0,
+      "perturb_attn": true,
+      "rescale": 0.7,
+      "modality_scale": 0,
+      "skip_step": 0,
+      "cross_attn": true
     },
     "class_type": "GuiderParameters",
     "_meta": {
@@ -542,9 +542,12 @@
       ],
       "modality": "VIDEO",
       "cfg": 3,
-      "cfg_start_percent": 1,
-      "distilled_cfg": true,
-      "rescale_factor": 0.9
+      "stg": 1,
+      "perturb_attn": true,
+      "rescale": 0.9,
+      "modality_scale": 0,
+      "skip_step": 0,
+      "cross_attn": true
     },
     "class_type": "GuiderParameters",
     "_meta": {
@@ -587,8 +590,7 @@
   },
   "4832": {
     "inputs": {
-      "noise_seed": 43,
-      "control_after_generate": "fixed"
+      "noise_seed": 43
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -597,8 +599,7 @@
   },
   "2004": {
     "inputs": {
-      "image": "example.png",
-      "upload": "image"
+      "image": "example.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -638,9 +639,11 @@
         "2004",
         0
       ],
-      "mode": "scale longer dimension",
-      "size": 1536,
-      "interpolation": "lanczos"
+      "resize_type": {
+        "resize_type": "scale longer dimension",
+        "longer_size": 1536
+      },
+      "scale_method": "lanczos"
     },
     "class_type": "ResizeImageMaskNode",
     "_meta": {
@@ -654,13 +657,12 @@
         0
       ],
       "prompt": "",
-      "negative_prompt": "pc game, console game, video game, cartoon, childish, ugly",
-      "use_negative": false,
+      "enhance_prompt": false,
       "ckpt_name": "ltx-2.3-22b-dev.safetensors"
     },
     "class_type": "GemmaAPITextEncode",
     "_meta": {
-      "title": "\u00f0\u0178\u2026\u203a\u00f0\u0178\u2026\u00a3\u00f0\u0178\u2026\u00a7 Gemma API Text Encode - NEGATIVE"
+      "title": "Gemma API Text Encode - NEGATIVE"
     }
   }
 }

@@ -22,6 +22,23 @@ interface SidebarProps {
     onTabChange: (tab: string, subTab?: string) => void;
 }
 
+type ModelEntry = { id: string; label: string; icon: string; category?: string };
+
+function groupByCategory(models: ModelEntry[]): { category: string | null; items: ModelEntry[] }[] {
+    const groups: { category: string | null; items: ModelEntry[] }[] = [];
+    let currentCategory: string | null | undefined = undefined;
+    for (const model of models) {
+        const cat = model.category ?? null;
+        if (cat !== currentCategory) {
+            groups.push({ category: cat, items: [model] });
+            currentCategory = cat;
+        } else {
+            groups[groups.length - 1].items.push(model);
+        }
+    }
+    return groups;
+}
+
 export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) => {
     const sections = [
         {
@@ -29,7 +46,7 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
             items: [
                 { id: 'chat', label: 'Agent Chat', icon: MessageSquare },
                 { id: 'image', label: 'Image Generation', icon: ImageIcon, models: MODELS.IMAGE },
-                { id: 'video', label: 'Video/VFX', icon: Video, models: MODELS.VIDEO },
+                { id: 'video', label: 'Video', icon: Video, models: MODELS.VIDEO },
                 { id: 'audio', label: 'Audio/SFX', icon: Music, models: MODELS.AUDIO },
             ],
         },
@@ -102,24 +119,38 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
                                         )}
                                     </button>
 
-                                    {/* Sub-menu */}
+                                    {/* Sub-menu (grouped by category when available) */}
                                     {activeTab === item.id && item.models && (
-                                        <div className="pl-12 pr-2 py-2 space-y-1 animate-in slide-in-from-top-2 fade-in duration-200">
-                                            {item.models.map((model) => (
-                                                <button
-                                                    key={model.id}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onTabChange(item.id, model.id);
-                                                    }}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${activeSubTab === model.id
-                                                        ? 'bg-white/10 text-white'
-                                                        : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                                                        }`}
-                                                >
-                                                    <span className={`text-[8px] ${activeSubTab === model.id ? 'text-white' : 'text-slate-600'}`}>●</span>
-                                                    <span className="font-medium">{model.label}</span>
-                                                </button>
+                                        <div className="pl-8 pr-2 py-2 animate-in slide-in-from-top-2 fade-in duration-200">
+                                            {groupByCategory(item.models).map((group) => (
+                                                <div key={group.category ?? '__ungrouped'}>
+                                                    {group.category && (
+                                                        <div className="px-3 pt-2 pb-1">
+                                                            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.15em]">
+                                                                {group.category}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div className="space-y-0.5">
+                                                        {group.items.map((model) => (
+                                                            <button
+                                                                key={model.id}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onTabChange(item.id, model.id);
+                                                                }}
+                                                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                                                                    activeSubTab === model.id
+                                                                        ? 'bg-white/10 text-white'
+                                                                        : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                                                }`}
+                                                            >
+                                                                <span className={`text-[8px] ${activeSubTab === model.id ? 'text-white' : 'text-slate-600'}`}>●</span>
+                                                                <span className="font-medium">{model.label}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
                                     )}

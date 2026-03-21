@@ -1048,6 +1048,52 @@ REQUIRED_MODELS = {
 # Scene Builder uses the same WAN models as Lipsync
 REQUIRED_MODELS["scene-builder"] = REQUIRED_MODELS["lipsync"]
 
+# LTX-2.3 (22B) - Image-to-Video and Text-to-Video share the same model set
+# No FP8 variants exist yet for 2.3 - full BF16 checkpoints
+# Audio VAE is embedded in the checkpoint - no separate VAE needed
+# Uses Comfy-Org single-file Gemma-3 repack (not the 5-shard Google version)
+# LoRA paths use ltxv/ltx2/ subfolder as expected by official workflows
+REQUIRED_MODELS["ltx-i2v"] = [
+    {
+        "id": "ltx23-checkpoint-dev",
+        "name": "ltx-2.3-22b-dev.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-dev.safetensors",
+        "path": "checkpoints/ltx-2.3-22b-dev.safetensors",
+        "size_gb": 46.1
+    },
+    {
+        "id": "ltx23-gemma3-text-encoder",
+        "name": "comfy_gemma_3_12B_it.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/gemma_3_text_encoders/resolve/main/comfy_gemma_3_12B_it.safetensors",
+        "path": "text_encoders/comfy_gemma_3_12B_it.safetensors",
+        "size_gb": 24.0
+    },
+    {
+        "id": "ltx23-distilled-lora",
+        "name": "ltx-2.3-22b-distilled-lora-384.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384.safetensors",
+        "path": "loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-384.safetensors",
+        "size_gb": 7.61
+    },
+    {
+        "id": "ltx23-spatial-upscaler",
+        "name": "ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
+        "path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
+        "size_gb": 0.97
+    },
+    {
+        "id": "ltx23-temporal-upscaler",
+        "name": "ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+        "path": "latent_upscale_models/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+        "size_gb": 0.26
+    }
+]
+
+# T2V uses the same models as I2V
+REQUIRED_MODELS["ltx-t2v"] = REQUIRED_MODELS["ltx-i2v"]
+
 download_progress = {} # { model_id: { downloaded: 0, total: 0, status: 'idle' } }
 
 def start_download(model_info, hf_token=None):

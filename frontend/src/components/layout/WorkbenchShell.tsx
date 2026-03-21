@@ -13,7 +13,7 @@ export const WorkbenchShell = ({
     topBar,
     leftPane,
     rightPane,
-    leftWidthClassName = 'w-[420px]',
+    leftWidthClassName = 'w-[480px]',
     leftPaneClassName = 'p-5',
     rightPaneClassName = '',
 }: WorkbenchShellProps) => {

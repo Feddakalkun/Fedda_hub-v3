@@ -50,7 +50,7 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
     return (
         <WorkbenchShell
             topBar={<PageTabs tabs={TABS} activeTab={activeMode} onChange={setActiveMode} />}
-            leftWidthClassName="w-[460px]"
+            leftWidthClassName="w-[520px]"
             leftPaneClassName="p-4"
             leftPane={
                 <>

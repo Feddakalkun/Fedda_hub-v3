@@ -84,7 +84,19 @@
     "name": "ComfyUI-LTXVideo",
     "url": "https://github.com/Lightricks/ComfyUI-LTXVideo.git",
     "folder": "ComfyUI-LTXVideo",
-    "note": "LTX-2 video nodes — LTXVGemmaCLIPModelLoader, LTXVPreprocess, advanced samplers, upscalers, IC-LoRA support"
+    "note": "LTX-2/2.3 video nodes — ClownSampler_Beta, MultimodalGuider, GuiderParameters, LTXAVTextEncoderLoader, SaveVideo, upscalers"
+  },
+  {
+    "name": "ComfyMath",
+    "url": "https://github.com/evanspearman/ComfyMath.git",
+    "folder": "ComfyMath",
+    "note": "CM_FloatToInt — type conversion used in LTX-2.3 workflow"
+  },
+  {
+    "name": "RES4LYF",
+    "url": "https://github.com/ClownsharkBatwing/RES4LYF.git",
+    "folder": "RES4LYF",
+    "note": "ClownSampler_Beta — advanced sampler used in LTX-2.3 distilled workflows"
   },
   {
     "name": "ComfyUI-KJNodes",

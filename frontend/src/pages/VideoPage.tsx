@@ -1,7 +1,9 @@
-// Video Page - Lipsync + Scene Builder with video preview
+// Video Page - LTX I2V, LTX T2V, Lipsync, Scene Builder with video preview
 import { useState, useEffect, useRef } from 'react';
 import { Film } from 'lucide-react';
 import { ModelDownloader } from '../components/ModelDownloader';
+import { LtxI2vTab } from '../components/video/LtxI2vTab';
+import { LtxT2vTab } from '../components/video/LtxT2vTab';
 import { LipsyncTab } from '../components/video/LipsyncTab';
 import { SceneBuilderTab } from '../components/video/SceneBuilderTab';
 import { useComfyExecution } from '../contexts/ComfyExecutionContext';
@@ -65,12 +67,18 @@ export const VideoPage = ({ modelId }: VideoPageProps) => {
 
     return (
         <WorkbenchShell
-            leftWidthClassName="w-[380px]"
+            leftWidthClassName="w-[480px]"
             leftPane={
                 <>
                     <ModelDownloader modelGroup={modelId} />
 
                     <div className="px-4 mt-4">
+                        <div style={{ display: modelId === 'ltx-i2v' ? undefined : 'none' }}>
+                            <LtxI2vTab />
+                        </div>
+                        <div style={{ display: modelId === 'ltx-t2v' ? undefined : 'none' }}>
+                            <LtxT2vTab />
+                        </div>
                         <div style={{ display: modelId === 'lipsync' ? undefined : 'none' }}>
                             <LipsyncTab />
                         </div>

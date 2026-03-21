@@ -32,6 +32,8 @@ const MODEL_GROUP_LABELS: Record<string, string> = {
     'qwen-angle': 'Qwen Angle',
     'lipsync': 'Lipsync (WAN + LTX)',
     'scene-builder': 'Scene Builder (WAN)',
+    'ltx-i2v': 'LTX 2.3 (Image to Video)',
+    'ltx-t2v': 'LTX 2.3 (Text to Video)',
 };
 
 export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: ModelDownloaderProps) => {

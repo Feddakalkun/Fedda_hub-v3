@@ -1,0 +1,24 @@
+{
+  "1": {
+    "inputs": {
+      "prompt": "User message here",
+      "model": "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf",
+      "max_tokens": 512,
+      "temperature": 0.7,
+      "top_p": 0.9
+    },
+    "class_type": "IF_LLM",
+    "_meta": {
+      "title": "LLM Chat"
+    }
+  },
+  "2": {
+    "inputs": {
+      "text": ["1", 0]
+    },
+    "class_type": "IF_TextOutput",
+    "_meta": {
+      "title": "Output"
+    }
+  }
+}

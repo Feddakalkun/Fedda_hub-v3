@@ -1383,26 +1383,73 @@ async def chat_with_llm(request: ChatRequest):
                     workflow_path = p
                     break
             else:
-                return {"success": False, "error": "Chat workflow file not found"}
+                # List what actually exists for debugging
+                base = Path(__file__).parent.parent
+                print(f"Chat workflow not found. Base dir: {base}")
+                print(f"  frontend/dist exists: {(base / 'frontend' / 'dist').exists()}")
+                print(f"  frontend/dist/workflows exists: {(base / 'frontend' / 'dist' / 'workflows').exists()}")
+                if (base / "frontend" / "dist" / "workflows").exists():
+                    print(f"  files: {list((base / 'frontend' / 'dist' / 'workflows').iterdir())}")
+                return {"success": False, "error": "Chat workflow file not found on server"}
+
             workflow = json.loads(workflow_path.read_text())
+            print(f"[Chat] Loaded workflow from {workflow_path}")
+
+            # Build prompt from messages
             prompt = "\n".join([f"{m['role']}: {m['content']}" for m in request.messages])
             workflow["1"]["inputs"]["prompt"] = prompt
+
+            # Submit to ComfyUI
             comfy_url = "http://127.0.0.1:8199"
             response = requests.post(f"{comfy_url}/prompt", json={"prompt": workflow})
-            response.raise_for_status()
-            prompt_id = response.json()["prompt_id"]
+
+            # Check if ComfyUI rejected the workflow (e.g. unknown node types)
+            if response.status_code != 200:
+                error_text = response.text
+                print(f"[Chat] ComfyUI rejected workflow: {error_text}")
+                return {"success": False, "error": f"ComfyUI rejected workflow: {error_text[:200]}"}
+
+            resp_json = response.json()
+            if "error" in resp_json:
+                print(f"[Chat] ComfyUI error: {resp_json['error']}")
+                return {"success": False, "error": f"ComfyUI error: {resp_json['error']}"}
+            if "node_errors" in resp_json and resp_json["node_errors"]:
+                print(f"[Chat] Node errors: {resp_json['node_errors']}")
+                return {"success": False, "error": f"Workflow node errors: {json.dumps(resp_json['node_errors'])[:200]}"}
+
+            prompt_id = resp_json["prompt_id"]
+            print(f"[Chat] Queued prompt_id={prompt_id}, waiting for result...")
+
+            # Poll for result (model download on first use can take a while)
             import time
-            for _ in range(60):
+            for i in range(120):  # 120s timeout for first-time model download
                 time.sleep(1)
                 history_resp = requests.get(f"{comfy_url}/history/{prompt_id}")
                 history = history_resp.json()
-                if prompt_id in history and history[prompt_id].get("outputs"):
-                    outputs = history[prompt_id]["outputs"]
-                    if "2" in outputs and "text" in outputs["2"]:
-                        return {"response": outputs["2"]["text"][0], "success": True}
-            return {"success": False, "error": "LLM response timeout (60s)"}
+                if prompt_id in history:
+                    entry = history[prompt_id]
+                    if entry.get("outputs"):
+                        outputs = entry["outputs"]
+                        # Try to find text output in any node
+                        for node_id, node_output in outputs.items():
+                            if "text" in node_output:
+                                text = node_output["text"]
+                                result = text[0] if isinstance(text, list) else text
+                                print(f"[Chat] Got response from node {node_id}: {result[:100]}...")
+                                return {"response": result, "success": True}
+                        print(f"[Chat] Outputs found but no text: {list(outputs.keys())}")
+                        return {"success": False, "error": "LLM produced output but no text found"}
+                    # Check if execution failed
+                    if entry.get("status", {}).get("status_str") == "error":
+                        msgs = entry.get("status", {}).get("messages", [])
+                        print(f"[Chat] Execution error: {msgs}")
+                        return {"success": False, "error": f"Workflow execution failed: {str(msgs)[:200]}"}
+
+            return {"success": False, "error": "LLM response timeout (120s) — model may still be downloading"}
         except Exception as e:
             print(f"Chat error (RunPod): {e}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "error": str(e)}
     else:
         # Local: call Ollama directly

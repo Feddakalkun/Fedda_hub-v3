@@ -317,6 +317,12 @@ class ComfyUIService {
         onCompleted?: (promptId: string, output?: any) => void;
         onPreview?: (blobUrl: string) => void;
     }): () => void {
+        // Cancel any pending reconnect
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
         // If we already have a working connection, just update callbacks
         if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
             this.updateCallbacks(callbacks);

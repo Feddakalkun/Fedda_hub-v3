@@ -3,7 +3,7 @@
 FEDDA AI Studio — RunPod One-Click Deployer
 
 Usage:
-    python deploy.py                    # Interactive GPU picker
+    python deploy.py                    # Interactive menu
     python deploy.py --gpu "RTX 4090"   # Direct GPU selection
     python deploy.py --list             # List available GPUs
     python deploy.py --stop <pod_id>    # Stop a running pod
@@ -15,9 +15,10 @@ Requires: RUNPOD_API_KEY environment variable (or prompts for it)
 import os
 import sys
 import json
+import time
 import argparse
 from urllib.request import Request, urlopen
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 # ─── Configuration ───────────────────────────────────────────────────
 DOCKER_IMAGE = "ghcr.io/feddakalkun/comfyuifeddafront:latest"
@@ -31,24 +32,38 @@ VOLUME_MOUNT = "/workspace"
 
 # Popular GPU choices for video generation
 GPU_PRESETS = {
-    "1": ("NVIDIA RTX A6000",       "48 GB — Great all-rounder"),
-    "2": ("NVIDIA RTX 4090",        "24 GB — Fast, good for LTX-2"),
-    "3": ("NVIDIA A100 80GB PCIe",  "80 GB — Premium, large models"),
-    "4": ("NVIDIA A100-SXM4-80GB",  "80 GB — Fastest A100"),
-    "5": ("NVIDIA RTX A5000",       "24 GB — Budget option"),
-    "6": ("NVIDIA L40S",            "48 GB — Ada Lovelace"),
-    "7": ("NVIDIA RTX 4080",        "16 GB — Entry level"),
-    "8": ("NVIDIA H100 80GB HBM3",  "80 GB — Top tier"),
+    "1": ("NVIDIA RTX A6000",       "48 GB", "Great all-rounder"),
+    "2": ("NVIDIA RTX 4090",        "24 GB", "Fast, good for LTX-2"),
+    "3": ("NVIDIA A100 80GB PCIe",  "80 GB", "Premium, large models"),
+    "4": ("NVIDIA A100-SXM4-80GB",  "80 GB", "Fastest A100"),
+    "5": ("NVIDIA RTX A5000",       "24 GB", "Budget option"),
+    "6": ("NVIDIA L40S",            "48 GB", "Ada Lovelace"),
+    "7": ("NVIDIA RTX 4080",        "16 GB", "Entry level"),
+    "8": ("NVIDIA H100 80GB HBM3",  "80 GB", "Top tier"),
 }
 
 API_URL = "https://api.runpod.io/graphql"
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def print_header():
+    print()
+    print("  ╔═══════════════════════════════════════════════════╗")
+    print("  ║          FEDDA AI Studio — RunPod Manager         ║")
+    print("  ╚═══════════════════════════════════════════════════╝")
+    print()
 
 
 def get_api_key():
     """Get RunPod API key from env or prompt."""
     key = os.environ.get("RUNPOD_API_KEY", "").strip()
     if not key:
-        print("\n  No RUNPOD_API_KEY found in environment.")
+        print("  No RUNPOD_API_KEY found in environment.")
         print("  Get yours at: https://www.runpod.io/console/user/settings\n")
         key = input("  Enter your RunPod API key: ").strip()
         if not key:
@@ -80,43 +95,46 @@ def graphql(api_key: str, query: str, variables: dict = None) -> dict:
         body = e.read().decode("utf-8") if e.fp else ""
         print(f"\n  API Error {e.code}: {body}")
         sys.exit(1)
+    except URLError as e:
+        print(f"\n  Connection error: {e.reason}")
+        sys.exit(1)
 
     if "errors" in result:
         for err in result["errors"]:
-            print(f"\n  GraphQL Error: {err.get('message', err)}")
-        sys.exit(1)
+            print(f"\n  API Error: {err.get('message', err)}")
+        return None
 
     return result.get("data", {})
 
 
-def list_gpus(api_key: str):
-    """List available GPU types on RunPod."""
+def check_gpu_availability(api_key: str, gpu_type_id: str) -> dict | None:
+    """Check if a specific GPU type is available and return its info."""
     query = """
-    query {
+    query GpuTypes {
         gpuTypes {
             id
             displayName
             memoryInGb
-            maxGpuCount
+            communityPrice
+            securePrice
+            communitySpotPrice
+            secureSpotPrice
         }
     }
     """
     data = graphql(api_key, query)
-    gpus = data.get("gpuTypes", [])
-    gpus.sort(key=lambda g: g.get("memoryInGb", 0), reverse=True)
-
-    print(f"\n  {'GPU Type':<40} {'VRAM':<10} {'ID'}")
-    print(f"  {'─' * 40} {'─' * 10} {'─' * 30}")
-    for g in gpus:
-        name = g.get("displayName", g.get("id", "?"))
-        mem = g.get("memoryInGb", "?")
-        gid = g.get("id", "?")
-        print(f"  {name:<40} {mem} GB     {gid}")
-    print()
+    if not data:
+        return None
+    for gpu in data.get("gpuTypes", []):
+        if gpu["id"] == gpu_type_id or gpu.get("displayName") == gpu_type_id:
+            return gpu
+    return None
 
 
-def list_pods(api_key: str):
-    """List current pods."""
+# ─── Core Operations ────────────────────────────────────────────────
+
+def fetch_pods(api_key: str) -> list:
+    """Fetch current pods from RunPod."""
     query = """
     query {
         myself {
@@ -124,6 +142,7 @@ def list_pods(api_key: str):
                 id
                 name
                 desiredStatus
+                costPerHr
                 runtime {
                     uptimeInSeconds
                     ports {
@@ -141,6 +160,7 @@ def list_pods(api_key: str):
                 }
                 machine {
                     podHostId
+                    gpuDisplayName
                 }
                 imageName
                 gpuCount
@@ -149,29 +169,79 @@ def list_pods(api_key: str):
     }
     """
     data = graphql(api_key, query)
-    pods = data.get("myself", {}).get("pods", [])
+    if not data:
+        return []
+    return data.get("myself", {}).get("pods", [])
+
+
+def show_pods(api_key: str):
+    """Display current pods with status and URLs."""
+    pods = fetch_pods(api_key)
 
     if not pods:
-        print("\n  No pods running.\n")
+        print("  No pods found.\n")
         return
 
-    print(f"\n  {'ID':<28} {'Name':<25} {'Status':<12} {'Image'}")
-    print(f"  {'─' * 28} {'─' * 25} {'─' * 12} {'─' * 40}")
     for p in pods:
-        print(f"  {p['id']:<28} {p.get('name', '?'):<25} {p.get('desiredStatus', '?'):<12} {p.get('imageName', '?')}")
+        pod_id = p["id"]
+        status = p.get("desiredStatus", "?")
+        name = p.get("name", "Unnamed")
+        gpu = p.get("machine", {}).get("gpuDisplayName", "?")
+        cost = p.get("costPerHr", "?")
 
-        # Show ports/URLs
+        # Status indicator
+        if status == "RUNNING":
+            indicator = "●"
+        elif status == "EXITED":
+            indicator = "○"
+        else:
+            indicator = "◌"
+
         runtime = p.get("runtime")
-        if runtime and runtime.get("ports"):
-            for port in runtime["ports"]:
-                if port.get("isIpPublic") and port.get("publicPort"):
-                    proto = "https" if port["type"] == "http" else port["type"]
-                    print(f"           Port {port['privatePort']}: {proto}://{port['ip']}:{port['publicPort']}")
-    print()
+        uptime_str = ""
+        if runtime and runtime.get("uptimeInSeconds"):
+            secs = runtime["uptimeInSeconds"]
+            hours = secs // 3600
+            mins = (secs % 3600) // 60
+            uptime_str = f" (up {hours}h {mins}m)"
+
+        print(f"  {indicator} {name}")
+        print(f"    ID:     {pod_id}")
+        print(f"    GPU:    {gpu}  |  ${cost}/hr  |  {status}{uptime_str}")
+
+        if status == "RUNNING":
+            print(f"    ────────────────────────────────────────")
+            print(f"    Frontend:  https://{pod_id}-3000.proxy.runpod.net")
+            print(f"    ComfyUI:   https://{pod_id}-8199.proxy.runpod.net")
+            print(f"    Jupyter:   https://{pod_id}-8888.proxy.runpod.net")
+
+            # GPU utilization
+            if runtime and runtime.get("gpus"):
+                for g in runtime["gpus"]:
+                    gpu_util = g.get("gpuUtilPercent", 0)
+                    mem_util = g.get("memoryUtilPercent", 0)
+                    print(f"    GPU Load:  {gpu_util}%  |  VRAM: {mem_util}%")
+
+        print()
 
 
 def deploy_pod(api_key: str, gpu_type_id: str, volume_gb: int = VOLUME_GB, container_disk_gb: int = CONTAINER_DISK_GB):
     """Deploy a new pod on RunPod."""
+
+    # Check GPU availability first
+    gpu_info = check_gpu_availability(api_key, gpu_type_id)
+    if gpu_info:
+        price = gpu_info.get("communityPrice") or gpu_info.get("securePrice") or "?"
+        print(f"  GPU:    {gpu_info.get('displayName', gpu_type_id)} ({gpu_info.get('memoryInGb', '?')} GB)")
+        print(f"  Price:  ~${price}/hr")
+    else:
+        print(f"  GPU:    {gpu_type_id}")
+
+    print(f"  Image:  {DOCKER_IMAGE}")
+    print(f"  Volume: {volume_gb} GB  |  Disk: {container_disk_gb} GB")
+    print(f"  Ports:  3000 (Frontend) · 8199 (ComfyUI) · 8888 (Jupyter) · 22 (SSH)")
+    print()
+
     query = """
     mutation($input: PodFindAndDeployOnDemandInput!) {
         podFindAndDeployOnDemand(input: $input) {
@@ -196,44 +266,48 @@ def deploy_pod(api_key: str, gpu_type_id: str, volume_gb: int = VOLUME_GB, conta
             "minMemoryInGb": MIN_MEMORY_GB,
             "ports": PORTS,
             "volumeMountPath": VOLUME_MOUNT,
-            "startJupyter": False,  # We run our own JupyterLab
+            "startJupyter": False,
             "startSsh": True,
             "dockerArgs": "",
             "env": [],
         }
     }
 
-    print(f"\n  Deploying {POD_NAME}...")
-    print(f"  Image:  {DOCKER_IMAGE}")
-    print(f"  GPU:    {gpu_type_id}")
-    print(f"  Volume: {volume_gb} GB → {VOLUME_MOUNT}")
-    print(f"  Ports:  {PORTS}")
-    print()
-
+    print("  Deploying...", end="", flush=True)
     data = graphql(api_key, query, variables)
+
+    if not data:
+        print(" FAILED")
+        print("\n  Could not deploy. The GPU may be sold out.")
+        print("  Try a different GPU or wait a few minutes.\n")
+        return None
+
     pod = data.get("podFindAndDeployOnDemand", {})
 
     if not pod or not pod.get("id"):
-        print("  ERROR: Failed to deploy pod. Check GPU availability.")
-        sys.exit(1)
+        print(" FAILED")
+        print("\n  No instances available for this GPU type.")
+        print("  Try a different GPU or check RunPod console.\n")
+        return None
 
     pod_id = pod["id"]
     cost = pod.get("costPerHr", "?")
 
-    print(f"  Pod deployed successfully!")
-    print(f"  ─────────────────────────────────────────")
-    print(f"  Pod ID:    {pod_id}")
-    print(f"  Cost:      ${cost}/hr")
-    print(f"  Status:    {pod.get('desiredStatus', 'RUNNING')}")
+    print(" OK!")
     print()
-    print(f"  Your URLs (wait ~2-3 min for services to start):")
-    print(f"  ─────────────────────────────────────────")
-    print(f"  Frontend:  https://{pod_id}-3000.proxy.runpod.net")
-    print(f"  ComfyUI:   https://{pod_id}-8199.proxy.runpod.net")
-    print(f"  Jupyter:   https://{pod_id}-8888.proxy.runpod.net")
-    print(f"  SSH:       ssh root@{pod_id}-22.proxy.runpod.net")
+    print("  ╔═══════════════════════════════════════════════════╗")
+    print("  ║              Pod Deployed Successfully            ║")
+    print("  ╠═══════════════════════════════════════════════════╣")
+    print(f"  ║  Pod ID:   {pod_id:<39} ║")
+    print(f"  ║  Cost:     ${cost}/hr{' ' * (36 - len(str(cost)))} ║")
+    print("  ╠═══════════════════════════════════════════════════╣")
+    print("  ║  URLs (ready in ~2-3 min):                       ║")
+    print(f"  ║  Frontend: https://{pod_id}-3000.proxy.runpod.net  ║")
+    print(f"  ║  ComfyUI:  https://{pod_id}-8199.proxy.runpod.net  ║")
+    print(f"  ║  Jupyter:  https://{pod_id}-8888.proxy.runpod.net  ║")
+    print("  ╚═══════════════════════════════════════════════════╝")
     print()
-    print(f"  Manage at: https://www.runpod.io/console/pods")
+    print(f"  Manage:  https://www.runpod.io/console/pods")
     print()
 
     return pod_id
@@ -250,14 +324,38 @@ def stop_pod(api_key: str, pod_id: str):
     }
     """
     data = graphql(api_key, query, {"input": {"podId": pod_id}})
-    pod = data.get("podStop", {})
-    print(f"\n  Pod {pod.get('id', pod_id)} → {pod.get('desiredStatus', 'STOPPED')}")
-    print(f"  Volume preserved. Resume anytime.\n")
+    if data:
+        pod = data.get("podStop", {})
+        print(f"\n  Pod {pod.get('id', pod_id)} stopped.")
+        print(f"  Volume preserved — resume anytime from RunPod console.\n")
+
+
+def resume_pod(api_key: str, pod_id: str, gpu_type_id: str = None):
+    """Resume a stopped pod."""
+    query = """
+    mutation($input: PodResumeInput!) {
+        podResume(input: $input) {
+            id
+            desiredStatus
+            costPerHr
+        }
+    }
+    """
+    inp = {"podId": pod_id}
+    if gpu_type_id:
+        inp["gpuTypeId"] = gpu_type_id
+
+    data = graphql(api_key, query, {"input": inp})
+    if data:
+        pod = data.get("podResume", {})
+        print(f"\n  Pod {pod.get('id', pod_id)} resuming...")
+        print(f"  Cost: ${pod.get('costPerHr', '?')}/hr")
+        print(f"  URLs will be available in ~1 min.\n")
 
 
 def terminate_pod(api_key: str, pod_id: str):
     """Terminate a pod (deletes everything including volume)."""
-    confirm = input(f"\n  WARNING: This will DELETE pod {pod_id} and its volume. Type 'yes' to confirm: ")
+    confirm = input(f"\n  WARNING: This will DELETE pod {pod_id} and its volume.\n  Type 'yes' to confirm: ")
     if confirm.strip().lower() != "yes":
         print("  Cancelled.\n")
         return
@@ -268,35 +366,201 @@ def terminate_pod(api_key: str, pod_id: str):
     }
     """
     graphql(api_key, query, {"input": {"podId": pod_id}})
-    print(f"\n  Pod {pod_id} terminated.\n")
+    print(f"\n  Pod {pod_id} terminated and deleted.\n")
 
 
-def interactive_gpu_picker():
-    """Show GPU menu and return selected GPU type ID."""
+def list_gpus(api_key: str):
+    """List available GPU types on RunPod with pricing."""
+    query = """
+    query {
+        gpuTypes {
+            id
+            displayName
+            memoryInGb
+            communityPrice
+            securePrice
+        }
+    }
+    """
+    data = graphql(api_key, query)
+    if not data:
+        return
+    gpus = data.get("gpuTypes", [])
+    gpus.sort(key=lambda g: g.get("memoryInGb", 0), reverse=True)
+
+    print(f"\n  {'GPU':<35} {'VRAM':<8} {'$/hr':<8} {'ID'}")
+    print(f"  {'─' * 35} {'─' * 8} {'─' * 8} {'─' * 30}")
+    for g in gpus:
+        name = g.get("displayName", g.get("id", "?"))
+        mem = f"{g.get('memoryInGb', '?')} GB"
+        price = g.get("communityPrice") or g.get("securePrice") or "?"
+        price_str = f"${price}" if price != "?" else "?"
+        gid = g.get("id", "?")
+        print(f"  {name:<35} {mem:<8} {price_str:<8} {gid}")
     print()
-    print("  ╔═══════════════════════════════════════════════╗")
-    print("  ║        FEDDA AI Studio — GPU Selector         ║")
-    print("  ╠═══════════════════════════════════════════════╣")
-    for key, (name, desc) in GPU_PRESETS.items():
-        print(f"  ║  [{key}]  {name:<28} {desc:<14} ║")
-    print("  ║  [C]  Custom GPU ID                           ║")
-    print("  ╚═══════════════════════════════════════════════╝")
+
+
+# ─── Interactive Menu ────────────────────────────────────────────────
+
+def interactive_menu(api_key: str, volume_gb: int, container_disk_gb: int):
+    """Main interactive menu loop."""
+    while True:
+        clear_screen()
+        print_header()
+
+        # Show active pods summary
+        pods = fetch_pods(api_key)
+        running = [p for p in pods if p.get("desiredStatus") == "RUNNING"]
+        stopped = [p for p in pods if p.get("desiredStatus") == "EXITED"]
+
+        if running:
+            print(f"  Active pods: {len(running)} running, {len(stopped)} stopped")
+            for p in running:
+                pid = p["id"]
+                gpu = p.get("machine", {}).get("gpuDisplayName", "?")
+                cost = p.get("costPerHr", "?")
+                print(f"    ● {p.get('name', 'Unnamed')} — {gpu} — ${cost}/hr")
+                print(f"      https://{pid}-3000.proxy.runpod.net")
+            print()
+        elif stopped:
+            print(f"  {len(stopped)} stopped pod(s) available to resume.")
+            print()
+        else:
+            print("  No active pods.")
+            print()
+
+        # Menu
+        print("  ─── Actions ─────────────────────────────────────")
+        print("  [D]  Deploy new pod (pick GPU)")
+        print("  [P]  View all pods (detailed)")
+        print("  [R]  Resume a stopped pod")
+        print("  [S]  Stop a running pod")
+        print("  [T]  Terminate (delete) a pod")
+        print("  [G]  List all GPU types + pricing")
+        print("  [Q]  Quit")
+        print()
+
+        choice = input("  > ").strip().upper()
+
+        if choice == "D":
+            clear_screen()
+            print_header()
+            gpu = gpu_picker_with_availability(api_key)
+            if gpu:
+                deploy_pod(api_key, gpu, volume_gb, container_disk_gb)
+                input("  Press Enter to continue...")
+
+        elif choice == "P":
+            clear_screen()
+            print_header()
+            print("  ─── Your Pods ───────────────────────────────────\n")
+            show_pods(api_key)
+            input("  Press Enter to continue...")
+
+        elif choice == "R":
+            clear_screen()
+            print_header()
+            stopped_pods = [p for p in fetch_pods(api_key) if p.get("desiredStatus") == "EXITED"]
+            if not stopped_pods:
+                print("  No stopped pods to resume.\n")
+            else:
+                print("  Stopped pods:\n")
+                for i, p in enumerate(stopped_pods, 1):
+                    print(f"  [{i}] {p.get('name', 'Unnamed')} — {p['id']}")
+                print()
+                idx = input("  Select pod to resume [number]: ").strip()
+                try:
+                    pod = stopped_pods[int(idx) - 1]
+                    resume_pod(api_key, pod["id"])
+                except (ValueError, IndexError):
+                    print("  Invalid selection.")
+            input("  Press Enter to continue...")
+
+        elif choice == "S":
+            clear_screen()
+            print_header()
+            running_pods = [p for p in fetch_pods(api_key) if p.get("desiredStatus") == "RUNNING"]
+            if not running_pods:
+                print("  No running pods to stop.\n")
+            else:
+                print("  Running pods:\n")
+                for i, p in enumerate(running_pods, 1):
+                    gpu = p.get("machine", {}).get("gpuDisplayName", "?")
+                    print(f"  [{i}] {p.get('name', 'Unnamed')} — {gpu} — {p['id']}")
+                print()
+                idx = input("  Select pod to stop [number]: ").strip()
+                try:
+                    pod = running_pods[int(idx) - 1]
+                    stop_pod(api_key, pod["id"])
+                except (ValueError, IndexError):
+                    print("  Invalid selection.")
+            input("  Press Enter to continue...")
+
+        elif choice == "T":
+            clear_screen()
+            print_header()
+            all_pods = fetch_pods(api_key)
+            if not all_pods:
+                print("  No pods to terminate.\n")
+            else:
+                print("  All pods:\n")
+                for i, p in enumerate(all_pods, 1):
+                    status = p.get("desiredStatus", "?")
+                    print(f"  [{i}] {p.get('name', 'Unnamed')} — {status} — {p['id']}")
+                print()
+                idx = input("  Select pod to terminate [number]: ").strip()
+                try:
+                    pod = all_pods[int(idx) - 1]
+                    terminate_pod(api_key, pod["id"])
+                except (ValueError, IndexError):
+                    print("  Invalid selection.")
+            input("  Press Enter to continue...")
+
+        elif choice == "G":
+            clear_screen()
+            print_header()
+            list_gpus(api_key)
+            input("  Press Enter to continue...")
+
+        elif choice == "Q":
+            print("\n  Bye!\n")
+            break
+
+        else:
+            pass  # Invalid choice, just loop
+
+
+def gpu_picker_with_availability(api_key: str) -> str | None:
+    """Show GPU menu with live availability check."""
+    print("  ─── Select GPU ──────────────────────────────────\n")
+    for key, (name, vram, desc) in GPU_PRESETS.items():
+        print(f"  [{key}]  {name:<30} {vram:<8} {desc}")
+    print(f"  [C]  Custom GPU ID")
     print()
 
-    choice = input("  Select GPU [1-8, C]: ").strip().upper()
+    choice = input("  Select GPU [1-8, C, or Q to cancel]: ").strip().upper()
 
-    if choice == "C":
-        gpu_id = input("  Enter GPU type ID (from --list): ").strip()
-        if not gpu_id:
-            print("  ERROR: No GPU ID entered.")
-            sys.exit(1)
-        return gpu_id
+    if choice == "Q":
+        return None
+    elif choice == "C":
+        gpu_id = input("  Enter GPU type ID: ").strip()
+        return gpu_id if gpu_id else None
     elif choice in GPU_PRESETS:
-        return GPU_PRESETS[choice][0]
+        gpu_id = GPU_PRESETS[choice][0]
+        print(f"\n  Checking availability for {gpu_id}...", end="", flush=True)
+        info = check_gpu_availability(api_key, gpu_id)
+        if info:
+            print(f" found!")
+        else:
+            print(f" (could not verify, trying anyway)")
+        print()
+        return gpu_id
     else:
-        print(f"  Invalid choice: {choice}")
-        sys.exit(1)
+        print(f"  Invalid choice.")
+        return None
 
+
+# ─── CLI Entry Point ─────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
@@ -304,21 +568,23 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python deploy.py                      Interactive GPU picker
-  python deploy.py --gpu "RTX 4090"     Deploy with RTX 4090
+  python deploy.py                      Interactive menu
+  python deploy.py --gpu "RTX 4090"     Deploy with specific GPU
   python deploy.py --list               List all available GPUs
   python deploy.py --pods               List your running pods
   python deploy.py --stop <pod_id>      Stop pod (preserves volume)
+  python deploy.py --resume <pod_id>    Resume a stopped pod
   python deploy.py --terminate <pod_id> Delete pod and volume
 
 Environment:
   RUNPOD_API_KEY    Your RunPod API key (or will be prompted)
         """,
     )
-    parser.add_argument("--gpu", type=str, help="GPU type ID or name")
+    parser.add_argument("--gpu", type=str, help="GPU type ID or name — deploy directly")
     parser.add_argument("--list", action="store_true", help="List available GPU types")
     parser.add_argument("--pods", action="store_true", help="List your current pods")
     parser.add_argument("--stop", type=str, metavar="POD_ID", help="Stop a pod")
+    parser.add_argument("--resume", type=str, metavar="POD_ID", help="Resume a stopped pod")
     parser.add_argument("--terminate", type=str, metavar="POD_ID", help="Terminate a pod")
     parser.add_argument("--volume", type=int, default=VOLUME_GB, help=f"Volume size in GB (default: {VOLUME_GB})")
     parser.add_argument("--disk", type=int, default=CONTAINER_DISK_GB, help=f"Container disk in GB (default: {CONTAINER_DISK_GB})")
@@ -330,19 +596,24 @@ Environment:
 
     api_key = get_api_key()
 
+    # Direct CLI commands
     if args.list:
         list_gpus(api_key)
     elif args.pods:
-        list_pods(api_key)
+        print_header()
+        show_pods(api_key)
     elif args.stop:
         stop_pod(api_key, args.stop)
+    elif args.resume:
+        resume_pod(api_key, args.resume)
     elif args.terminate:
         terminate_pod(api_key, args.terminate)
+    elif args.gpu:
+        print_header()
+        deploy_pod(api_key, args.gpu, volume_gb, container_disk_gb)
     else:
-        gpu = args.gpu
-        if not gpu:
-            gpu = interactive_gpu_picker()
-        deploy_pod(api_key, gpu, volume_gb, container_disk_gb)
+        # Interactive menu
+        interactive_menu(api_key, volume_gb, container_disk_gb)
 
 
 if __name__ == "__main__":

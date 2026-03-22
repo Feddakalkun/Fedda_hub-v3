@@ -169,7 +169,7 @@ def list_pods(api_key: str):
     print()
 
 
-def deploy_pod(api_key: str, gpu_type_id: str):
+def deploy_pod(api_key: str, gpu_type_id: str, volume_gb: int = VOLUME_GB, container_disk_gb: int = CONTAINER_DISK_GB):
     """Deploy a new pod on RunPod."""
     query = """
     mutation($input: PodFindAndDeployOnDemandInput!) {
@@ -189,8 +189,8 @@ def deploy_pod(api_key: str, gpu_type_id: str):
             "imageName": DOCKER_IMAGE,
             "gpuTypeId": gpu_type_id,
             "cloudType": "ALL",
-            "volumeInGb": VOLUME_GB,
-            "containerDiskInGb": CONTAINER_DISK_GB,
+            "volumeInGb": volume_gb,
+            "containerDiskInGb": container_disk_gb,
             "minVcpuCount": MIN_VCPU,
             "minMemoryInGb": MIN_MEMORY_GB,
             "ports": PORTS,
@@ -205,7 +205,7 @@ def deploy_pod(api_key: str, gpu_type_id: str):
     print(f"\n  Deploying {POD_NAME}...")
     print(f"  Image:  {DOCKER_IMAGE}")
     print(f"  GPU:    {gpu_type_id}")
-    print(f"  Volume: {VOLUME_GB} GB → {VOLUME_MOUNT}")
+    print(f"  Volume: {volume_gb} GB → {VOLUME_MOUNT}")
     print(f"  Ports:  {PORTS}")
     print()
 
@@ -324,10 +324,8 @@ Environment:
 
     args = parser.parse_args()
 
-    # Override defaults if provided
-    global VOLUME_GB, CONTAINER_DISK_GB
-    VOLUME_GB = args.volume
-    CONTAINER_DISK_GB = args.disk
+    volume_gb = args.volume
+    container_disk_gb = args.disk
 
     api_key = get_api_key()
 
@@ -343,7 +341,7 @@ Environment:
         gpu = args.gpu
         if not gpu:
             gpu = interactive_gpu_picker()
-        deploy_pod(api_key, gpu)
+        deploy_pod(api_key, gpu, volume_gb, container_disk_gb)
 
 
 if __name__ == "__main__":

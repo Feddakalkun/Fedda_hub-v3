@@ -59,7 +59,8 @@ if [ ! -f "$FULL_MARKER" ]; then
     echo "[NODES] Installing additional custom nodes in background..."
     (
         NODE_MODE=full /app/scripts/install-nodes.sh --full && touch "$FULL_MARKER"
-    ) > /var/log/node_install_bg.log 2>&1 &
+        echo "[NODES] Background node installation complete."
+    ) 2>&1 | tee /var/log/node_install_bg.log &
 else
     echo "[NODES] All nodes already installed."
 fi

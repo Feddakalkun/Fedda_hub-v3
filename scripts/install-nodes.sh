@@ -72,19 +72,19 @@ for node in candidates:
         continue
 
     print(f"  [{processed}/{total}] Installing {name}...")
+    sys.stdout.flush()
     result = subprocess.run(
-        ["git", "clone", "--depth", "1", url, dest],
-        capture_output=True,
-        text=True,
+        ["git", "clone", "--depth", "1", "--progress", url, dest],
     )
 
     if result.returncode != 0:
-        print(f"    WARNING: Failed to clone {name}: {result.stderr.strip()}")
+        print(f"    WARNING: Failed to clone {name}")
         continue
 
     req_path = os.path.join(dest, "requirements.txt")
     if os.path.exists(req_path):
         print(f"    Installing requirements for {name}...")
+        sys.stdout.flush()
         subprocess.run(
             [
                 sys.executable,
@@ -94,10 +94,8 @@ for node in candidates:
                 "-r",
                 req_path,
                 "--no-warn-script-location",
-                "-q",
+                "--progress-bar", "on",
             ],
-            capture_output=True,
-            text=True,
         )
 
 print(f"\nDone: {processed} nodes processed in {mode} mode.")

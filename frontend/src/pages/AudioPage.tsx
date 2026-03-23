@@ -83,7 +83,7 @@ export const AudioPage = () => {
     const [cfgScale, setCfgScale] = usePersistentState('audio_ace_cfg_scale', 1.2);
     const [useAudioCodes, setUseAudioCodes] = usePersistentState('audio_ace_use_audio_codes', false);
     const [selectedPresetId, setSelectedPresetId] = usePersistentState('audio_ace_selected_preset', ACE_PRESETS[0].id);
-    const [generationSourceMode, setGenerationSourceMode] = usePersistentState<GenerationSourceMode>('audio_ace_source_mode', 'preset');
+    const [, setGenerationSourceMode] = usePersistentState<GenerationSourceMode>('audio_ace_source_mode', 'preset');
     const [, setActiveReferenceSummary] = usePersistentState('audio_ace_active_reference', '');
 
     const [unetModels, setUnetModels] = useState<string[]>([]);

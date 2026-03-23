@@ -433,6 +433,76 @@ export const AudioPage = () => {
         }
     };
 
+    // --- One-Shot Quick Create ---
+    const [quickBrief, setQuickBrief] = usePersistentState('audio_ace_quick_brief', '');
+    const [isQuickGenerating, setIsQuickGenerating] = useState(false);
+
+    const findClosestPreset = (input: string): AcePreset => {
+        const lower = input.toLowerCase();
+        const keywords: Record<string, string[]> = {
+            'mj-groove-pop': ['pop', 'funk', 'disco', 'dance', 'groove', 'michael', 'jackson', 'motown', 'soul'],
+            'metallica-heavy': ['metal', 'heavy', 'rock', 'thrash', 'metallica', 'hard', 'guitar', 'riff', 'headbang'],
+            'sundfor-nordic-cinema': ['nordic', 'cinematic', 'ethereal', 'atmospheric', 'aurora', 'sundfor', 'art pop', 'scandinavian'],
+            'infected-psytrance': ['psy', 'trance', 'psychedelic', 'goa', 'rave', 'festival', 'infected', 'techno', 'electronic'],
+            'dark-whisper-pop': ['billie', 'whisper', 'dark pop', 'minimalist', 'eerie', 'asmr'],
+            'neon-rnb-drive': ['rnb', 'r&b', 'synthwave', '80s', 'retro', 'weeknd', 'neon', 'synth'],
+            'trailer-impact': ['trailer', 'epic', 'cinematic', 'orchestra', 'hans', 'zimmer', 'film', 'dramatic', 'soundtrack'],
+            'soul-ballad-lift': ['ballad', 'soul', 'adele', 'emotional', 'piano', 'vocal', 'sad', 'heartbreak'],
+            'melodic-trap-mood': ['trap', 'rap', 'hip hop', 'hiphop', 'drake', 'eminem', '808', 'beat', 'bars', 'flow', 'rapper'],
+            'festival-uplift': ['edm', 'avicii', 'festival', 'uplift', 'house', 'progressive', 'anthem', 'drop'],
+            'ambient-focus': ['ambient', 'lo-fi', 'lofi', 'chill', 'focus', 'study', 'relax', 'meditation', 'calm', 'jazz'],
+            'tiktok-hook-30': ['tiktok', 'viral', 'hook', 'short', 'catchy', 'trending'],
+        };
+
+        let bestId = 'mj-groove-pop';
+        let bestScore = 0;
+        for (const [presetId, words] of Object.entries(keywords)) {
+            const score = words.filter(w => lower.includes(w)).length;
+            if (score > bestScore) {
+                bestScore = score;
+                bestId = presetId;
+            }
+        }
+        return ACE_PRESETS.find(p => p.id === bestId) || ACE_PRESETS[0];
+    };
+
+    const handleOneShotGenerate = async () => {
+        const brief = quickBrief.trim();
+        if (!brief) return;
+
+        setIsQuickGenerating(true);
+        setError(null);
+
+        try {
+            // Try AI blueprint first
+            const model = plannerModel || availableModels[0];
+            if (model) {
+                toast('Creating your song...', 'success');
+                const result = await assistantService.generateAceStepBlueprint(model, brief);
+                setBlueprint(result);
+                applyBlueprint(result);
+                toast(`Blueprint: "${result.title}" — generating audio...`, 'success');
+            } else {
+                // Fallback: match to closest preset
+                const preset = findClosestPreset(brief);
+                applyPresetById(preset.id);
+                toast(`No AI model available — using "${preset.label}" preset`, 'info');
+            }
+        } catch (err) {
+            // On AI failure, fall back to preset matching
+            const preset = findClosestPreset(brief);
+            applyPresetById(preset.id);
+            toast(`AI unavailable — using "${preset.label}" preset`, 'info');
+        }
+
+        setIsQuickGenerating(false);
+
+        // Auto-trigger generation (small delay to let state settle)
+        setTimeout(() => {
+            handleGenerate();
+        }, 100);
+    };
+
     const handleGenerate = async () => {
         setIsGenerating(true);
         setError(null);
@@ -668,6 +738,32 @@ export const AudioPage = () => {
         <WorkbenchShell
             leftPane={
                 <>
+                    {/* Quick Create — one-shot song generation */}
+                    <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/10 rounded-2xl p-4 space-y-3">
+                        <div className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                            <Music4 className="w-3.5 h-3.5" /> Quick Create
+                        </div>
+                        <input
+                            value={quickBrief}
+                            onChange={(e) => setQuickBrief(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && quickBrief.trim()) { e.preventDefault(); handleOneShotGenerate(); } }}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:ring-1 focus:ring-white/20 focus:outline-none"
+                            placeholder="Describe your song... e.g. 'eminem rap god battle rap' or 'sad piano ballad'"
+                            disabled={isQuickGenerating || isGenerating}
+                        />
+                        <button
+                            onClick={handleOneShotGenerate}
+                            disabled={isQuickGenerating || isGenerating || !quickBrief.trim() || !aceReady}
+                            className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-wider bg-white text-black hover:bg-slate-200 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+                        >
+                            {isQuickGenerating ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Creating Song...</>
+                            ) : (
+                                <><Wand2 className="w-4 h-4" /> Create Song</>
+                            )}
+                        </button>
+                    </div>
+
                     <ModelDownloader modelGroup="ace-step" onModelsReady={() => refreshAceModels(true)} />
 
                     <div className="bg-[#121218] border border-white/5 rounded-2xl p-4 space-y-3 mt-4">

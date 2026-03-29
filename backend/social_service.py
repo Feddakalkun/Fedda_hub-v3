@@ -2,6 +2,7 @@
 Social downloader service (Instagram + VSCO)
 """
 import json
+import time
 import re
 import subprocess
 import threading
@@ -13,6 +14,7 @@ from urllib.parse import urlparse
 import requests
 
 DOWNLOADS_DIR = Path(__file__).parent.parent / "social_downloads"
+LOGS_DIR = Path(__file__).parent.parent / "logs" / "social"
 jobs = {}
 
 try:
@@ -41,7 +43,22 @@ def _new_job(platform: str, url: str) -> str:
 def _append_log(job_id: str, line: str) -> None:
     if job_id not in jobs:
         return
-    jobs[job_id]["log"].append(line)
+    msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {line}"
+    jobs[job_id]["log"].append(msg)
+    try:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(LOGS_DIR / f"{job_id}.log", "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except Exception:
+        pass
+
+
+def _dump_debug(job_id: str, name: str, content: str) -> None:
+    try:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        (LOGS_DIR / f"{job_id}_{name}").write_text(content, encoding="utf-8", errors="ignore")
+    except Exception:
+        pass
 
 
 def _get_ytdlp_cmd() -> str:
@@ -65,18 +82,29 @@ def _cookie_args(cookie_source: str) -> list[str]:
     return mapping.get(cookie_source, [])
 
 
-def start_instagram_download(url: str, cookie_source: str = "none", limit: Optional[int] = None) -> str:
+def start_instagram_download(
+    url: str,
+    cookie_source: str = "none",
+    limit: Optional[int] = None,
+    pause_seconds: float = 1.5,
+) -> str:
     job_id = _new_job("instagram", url)
     thread = threading.Thread(
         target=_instagram_download_thread,
-        args=(job_id, url, cookie_source, limit),
+        args=(job_id, url, cookie_source, limit, pause_seconds),
         daemon=True,
     )
     thread.start()
     return job_id
 
 
-def _instagram_download_thread(job_id: str, url: str, cookie_source: str, limit: Optional[int]) -> None:
+def _instagram_download_thread(
+    job_id: str,
+    url: str,
+    cookie_source: str,
+    limit: Optional[int],
+    pause_seconds: float = 1.5,
+) -> None:
     try:
         out_root = DOWNLOADS_DIR / "instagram"
         out_root.mkdir(parents=True, exist_ok=True)
@@ -120,6 +148,8 @@ def _instagram_download_thread(job_id: str, url: str, cookie_source: str, limit:
                     jobs[job_id]["files"].append(fp)
 
         process.wait()
+        if pause_seconds > 0:
+            time.sleep(min(max(pause_seconds, 0.0), 10.0))
         if process.returncode == 0:
             jobs[job_id]["status"] = "completed"
             jobs[job_id]["progress"] = 100
@@ -132,11 +162,11 @@ def _instagram_download_thread(job_id: str, url: str, cookie_source: str, limit:
         _append_log(job_id, f"Error: {e}")
 
 
-def start_vsco_download(url: str, visible_browser: bool = False) -> str:
+def start_vsco_download(url: str, visible_browser: bool = False, pause_seconds: float = 1.5) -> str:
     job_id = _new_job("vsco", url)
     thread = threading.Thread(
         target=_vsco_download_thread,
-        args=(job_id, url, visible_browser),
+        args=(job_id, url, visible_browser, pause_seconds),
         daemon=True,
     )
     thread.start()
@@ -216,7 +246,12 @@ def _guess_vsco_profile(url: str) -> str:
     return path[0] if path and path[0] else f"vsco_{uuid.uuid4().hex[:6]}"
 
 
-def _vsco_download_thread(job_id: str, url: str, visible_browser: bool = False) -> None:
+def _vsco_download_thread(
+    job_id: str,
+    url: str,
+    visible_browser: bool = False,
+    pause_seconds: float = 1.5,
+) -> None:
     try:
         headers = {
             "User-Agent": (
@@ -247,10 +282,12 @@ def _vsco_download_thread(job_id: str, url: str, visible_browser: bool = False) 
             driver = _open_browser(url, headless=not visible_browser)
             browser_mode = True
             html = driver.page_source
+            _dump_debug(job_id, "vsco_browser_page.html", html[:2_000_000])
 
         profile_name = _guess_vsco_profile(url)
         site_id = _extract_vsco_site_id(html)
         if not site_id:
+            _dump_debug(job_id, "vsco_no_site_id.html", html[:2_000_000])
             raise ValueError("Could not resolve VSCO site id")
 
         out_dir = DOWNLOADS_DIR / "vsco" / profile_name
@@ -318,6 +355,8 @@ def _vsco_download_thread(job_id: str, url: str, visible_browser: bool = False) 
                 jobs[job_id]["files"].append(str(dest))
                 jobs[job_id]["progress"] = int((idx / total) * 100)
                 _append_log(job_id, f"Downloaded {idx}/{total}: {filename}")
+                if pause_seconds > 0:
+                    time.sleep(min(max(pause_seconds, 0.0), 10.0))
 
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["progress"] = 100
@@ -325,6 +364,10 @@ def _vsco_download_thread(job_id: str, url: str, visible_browser: bool = False) 
     except Exception as e:
         jobs[job_id]["status"] = "error"
         _append_log(job_id, f"Error: {e}")
+        try:
+            _dump_debug(job_id, "vsco_error.json", json.dumps({"error": str(e)}, ensure_ascii=False, indent=2))
+        except Exception:
+            pass
     finally:
         try:
             if "driver" in locals() and driver is not None:

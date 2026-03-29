@@ -32,6 +32,7 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
     const [instagramPostUrl, setInstagramPostUrl] = usePersistentState('social_download_instagram_post_url', '');
     const [vscoProfileUrl, setVscoProfileUrl] = usePersistentState('social_download_vsco_profile_url', '');
     const [vscoVisibleBrowser, setVscoVisibleBrowser] = usePersistentState('social_download_vsco_visible_browser', false);
+    const [socialPauseSeconds, setSocialPauseSeconds] = usePersistentState('social_download_pause_seconds', '1.5');
     const [cookieSource, setCookieSource] = usePersistentState('tiktok_download_cookie_source', 'none');
     const [limit, setLimit] = usePersistentState('tiktok_download_limit', '');
     const [jobs, setJobs] = useState<DownloadJob[]>([]);
@@ -165,6 +166,7 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
                     url: instagramProfileUrl.trim(),
                     cookie_source: cookieSource === 'none' ? 'none' : cookieSource,
                     limit: limit ? parseInt(limit) : null,
+                    pause_seconds: Number(socialPauseSeconds || '1.5'),
                 }),
             });
             if (!res.ok) {
@@ -199,6 +201,7 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
                 body: JSON.stringify({
                     url: instagramPostUrl.trim(),
                     cookie_source: cookieSource === 'none' ? 'none' : cookieSource,
+                    pause_seconds: Number(socialPauseSeconds || '1.5'),
                 }),
             });
             if (!res.ok) {
@@ -233,6 +236,7 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
                 body: JSON.stringify({
                     url: vscoProfileUrl.trim(),
                     visible_browser: !!vscoVisibleBrowser,
+                    pause_seconds: Number(socialPauseSeconds || '1.5'),
                 }),
             });
             if (!res.ok) {
@@ -294,6 +298,12 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
                         ))}
                     </select>
                 </div>
+                <input
+                    value={socialPauseSeconds}
+                    onChange={e => setSocialPauseSeconds(e.target.value.replace(/[^0-9.]/g, ''))}
+                    placeholder="Pause between downloads (sec)"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-white/20"
+                />
                 <button
                     onClick={handleDownloadProfile}
                     disabled={!profileUrl.trim()}

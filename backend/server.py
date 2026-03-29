@@ -1616,6 +1616,7 @@ class SocialDownloadRequest(BaseModel):
     cookie_source: str = "none"
     limit: Optional[int] = None
     visible_browser: bool = False
+    pause_seconds: float = 1.5
 
 def _check_tiktok():
     if tiktok_service is None:
@@ -1719,21 +1720,27 @@ async def tiktok_serve_file(path: str):
 @app.post("/api/social/instagram/download-profile")
 async def social_instagram_download_profile(req: SocialDownloadRequest):
     _check_social()
-    job_id = social_service.start_instagram_download(req.url, req.cookie_source, req.limit)
+    job_id = social_service.start_instagram_download(
+        req.url, req.cookie_source, req.limit, req.pause_seconds
+    )
     return {"job_id": job_id, "status": "started"}
 
 
 @app.post("/api/social/instagram/download-post")
 async def social_instagram_download_post(req: SocialDownloadRequest):
     _check_social()
-    job_id = social_service.start_instagram_download(req.url, req.cookie_source, None)
+    job_id = social_service.start_instagram_download(
+        req.url, req.cookie_source, None, req.pause_seconds
+    )
     return {"job_id": job_id, "status": "started"}
 
 
 @app.post("/api/social/vsco/download-profile")
 async def social_vsco_download_profile(req: SocialDownloadRequest):
     _check_social()
-    job_id = social_service.start_vsco_download(req.url, req.visible_browser)
+    job_id = social_service.start_vsco_download(
+        req.url, req.visible_browser, req.pause_seconds
+    )
     return {"job_id": job_id, "status": "started"}
 
 

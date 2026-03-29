@@ -76,7 +76,7 @@ export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: Model
         return () => clearInterval(interval);
     }, [checkStatus, isDownloading, backendUp]);
 
-    // Notify when download completes
+    // Notify and refresh ComfyUI when download completes
     useEffect(() => {
         if (wasDownloadingRef.current && !isDownloading && modelStatus.length > 0) {
             const allReady = modelStatus.every((m) => m.exists);
@@ -84,7 +84,10 @@ export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: Model
 
             if (allReady) {
                 const groupLabel = MODEL_GROUP_LABELS[modelGroup] || modelGroup;
-                toast(`✓ ${groupLabel} models installed successfully!`, 'success');
+                toast(`✓ ${groupLabel} models installed! Refreshing ComfyUI...`, 'success');
+                // Auto-refresh ComfyUI model list so it finds the new files immediately
+                fetch(`${BACKEND_API.BASE_URL}/api/comfy/refresh-models`)
+                    .catch(() => { /* non-fatal */ });
             } else if (anyError) {
                 toast('Some model downloads failed. Check your connection and try again.', 'error');
             }

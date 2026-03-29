@@ -57,7 +57,7 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
             label: 'CREATE',
             items: [
                 { id: 'chat', label: 'Agent Chat', icon: MessageSquare },
-                { id: 'image-z', label: 'Z-Image', icon: Sparkles, targetTab: 'image', targetSubTab: 'z-image' },
+                { id: 'image', label: 'Z-Image', icon: Sparkles, models: MODELS.IMAGE },
                 { id: 'qwen', label: 'QWEN', icon: Box, models: MODELS.QWEN },
                 { id: 'flux2klein', label: 'FLUX2KLEIN', icon: Sparkles, models: MODELS.FLUX2KLEIN },
                 { id: 'video', label: 'Video', icon: Video, models: MODELS.VIDEO },
@@ -107,10 +107,7 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
                             {section.items.map((item) => (
                                 <div key={item.id}>
                                     {(() => {
-                                        const isDirectImageEntry = item.targetTab === 'image' && item.targetSubTab;
-                                        const isActive = isDirectImageEntry
-                                            ? activeTab === 'image' && activeSubTab === item.targetSubTab
-                                            : activeTab === item.id;
+                                        const isActive = activeTab === item.id;
                                         const isCollapsed = !!collapsedMenus[item.id];
                                         const isExpanded = isActive && !isCollapsed;
 

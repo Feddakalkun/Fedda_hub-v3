@@ -59,6 +59,28 @@ const getDefaultSubTab = (tab: string): string | null => {
   return MODEL_TAB_MAP[tab][0]?.id ?? null;
 };
 
+const normalizeSubTab = (tab: string, subTab: string | null | undefined): string | null => {
+  if (!isModelTab(tab)) return null;
+  const defaultSub = getDefaultSubTab(tab);
+  if (!subTab) return defaultSub;
+
+  if (tab === 'image') {
+    const legacyMap: Record<string, string> = {
+      'z-image': 'image-generate',
+      generate: 'image-generate',
+      hq: 'image-hq',
+      img2img: 'image-img2img',
+      'mood-edit': 'image-mood-edit',
+      inpaint: 'image-inpaint',
+      metadata: 'image-metadata',
+    };
+    if (legacyMap[subTab]) return legacyMap[subTab];
+  }
+
+  const exists = MODEL_TAB_MAP[tab].some((m) => m.id === subTab);
+  return exists ? subTab : defaultSub;
+};
+
 const parseHash = (): { activeTab?: string; activeSubTab?: string | null } => {
   const raw = window.location.hash.replace(/^#/, '').trim();
   if (!raw) return {};
@@ -73,7 +95,7 @@ const parseHash = (): { activeTab?: string; activeSubTab?: string | null } => {
 
 const readInitialUiState = (): UiStateSnapshot => {
   let storedTab = 'chat';
-  let storedSubTab: string | null = 'z-image';
+  let storedSubTab: string | null = 'image-generate';
   let landingDismissed = false;
 
   // Read tab/subtab from localStorage (persists across sessions)
@@ -109,8 +131,8 @@ const readInitialUiState = (): UiStateSnapshot => {
   const hashSub = hashState.activeSubTab;
   const activeSubTab =
     hashSub !== undefined
-      ? (hashSub || getDefaultSubTab(activeTab))
-      : (storedSubTab || getDefaultSubTab(activeTab));
+      ? normalizeSubTab(activeTab, hashSub)
+      : normalizeSubTab(activeTab, storedSubTab);
 
   const showLanding = !(landingDismissed || Boolean(hashState.activeTab));
 
@@ -236,7 +258,7 @@ function App() {
       setShowLanding(false);
       setActiveTab(hashState.activeTab);
       if (hashState.activeSubTab !== undefined) {
-        setActiveSubTab(hashState.activeSubTab || getDefaultSubTab(hashState.activeTab));
+        setActiveSubTab(normalizeSubTab(hashState.activeTab, hashState.activeSubTab));
       } else if (isModelTab(hashState.activeTab)) {
         setActiveSubTab(getDefaultSubTab(hashState.activeTab));
       }
@@ -250,7 +272,7 @@ function App() {
     setShowLanding(false);
     setActiveTab(tab);
     if (subTab) {
-      setActiveSubTab(subTab);
+      setActiveSubTab(normalizeSubTab(tab, subTab));
       return;
     }
 
@@ -269,13 +291,13 @@ function App() {
   const handleSendToImg2Img = (_imageUrl: string, _caption?: string) => {
     setShowLanding(false);
     setActiveTab('image');
-    setActiveSubTab('z-image');
+    setActiveSubTab('image-img2img');
   };
 
   const handleSendToInpaint = (_imageUrl: string) => {
     setShowLanding(false);
     setActiveTab('image');
-    setActiveSubTab('z-image');
+    setActiveSubTab('image-inpaint');
   };
 
 

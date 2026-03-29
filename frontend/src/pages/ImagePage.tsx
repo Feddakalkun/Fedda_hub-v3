@@ -1,6 +1,5 @@
-// Image Generation Page - Tab Container
-import { useState, useCallback, useEffect } from 'react';
-import { Sparkles, Image, Paintbrush, Layers, FileText, Sun } from 'lucide-react';
+// Image Generation Page
+import { useState, useCallback } from 'react';
 import { ModelDownloader } from '../components/ModelDownloader';
 import { ImageGallery } from '../components/image/ImageGallery';
 import { GenerateTab } from '../components/image/GenerateTab';
@@ -10,18 +9,24 @@ import { MoodEditTab } from '../components/image/MoodEditTab';
 import { InpaintTab } from '../components/image/InpaintTab';
 import { MetadataTab } from '../components/image/MetadataTab';
 import { WorkbenchShell } from '../components/layout/WorkbenchShell';
-import { PageTabs } from '../components/layout/PageTabs';
 
-type ImageMode = 'generate' | 'hq' | 'img2img' | 'mood-edit' | 'inpaint' | 'metadata';
+type ImageMode = 'image-generate' | 'image-hq' | 'image-img2img' | 'image-mood-edit' | 'image-inpaint' | 'image-metadata';
 
-const TABS: { id: ImageMode; label: string; icon: React.ElementType }[] = [
-    { id: 'generate', label: 'GENERATE', icon: Sparkles },
-    { id: 'hq', label: 'HQ IMAGE', icon: Layers },
-    { id: 'img2img', label: 'IMG2IMG', icon: Image },
-    { id: 'mood-edit', label: 'MOOD EDIT', icon: Sun },
-    { id: 'inpaint', label: 'INPAINT', icon: Paintbrush },
-    { id: 'metadata', label: 'METADATA', icon: FileText },
-];
+const TAB_ALIASES: Record<string, ImageMode> = {
+    generate: 'image-generate',
+    hq: 'image-hq',
+    img2img: 'image-img2img',
+    'mood-edit': 'image-mood-edit',
+    inpaint: 'image-inpaint',
+    metadata: 'image-metadata',
+    'z-image': 'image-generate',
+    'image-generate': 'image-generate',
+    'image-hq': 'image-hq',
+    'image-img2img': 'image-img2img',
+    'image-mood-edit': 'image-mood-edit',
+    'image-inpaint': 'image-inpaint',
+    'image-metadata': 'image-metadata',
+};
 
 interface ImagePageProps {
     modelId: string;
@@ -29,10 +34,7 @@ interface ImagePageProps {
 }
 
 export const ImagePage = ({ modelId }: ImagePageProps) => {
-    const [activeMode, setActiveMode] = useState<ImageMode>(() => {
-        const saved = localStorage.getItem('image_active_mode');
-        return (saved && TABS.some((t) => t.id === saved)) ? (saved as ImageMode) : 'generate';
-    });
+    const activeMode = TAB_ALIASES[modelId] || 'image-generate';
     const [isGenerating, setIsGenerating] = useState(false);
     const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
     const [generatedImages, setGeneratedImages] = useState<string[]>(() => {
@@ -40,18 +42,14 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
         return saved ? JSON.parse(saved) : [];
     });
 
-    useEffect(() => {
-        localStorage.setItem('image_active_mode', activeMode);
-    }, [activeMode]);
-
     const handleSendToTab = useCallback((tab: string, imageUrl: string) => {
         setPendingImageUrl(imageUrl);
-        setActiveMode(tab as ImageMode);
+        const normalized = TAB_ALIASES[tab] || 'image-img2img';
+        window.location.hash = `#image/${normalized}`;
     }, []);
 
     return (
         <WorkbenchShell
-            topBar={<PageTabs tabs={TABS} activeTab={activeMode} onChange={setActiveMode} />}
             leftWidthClassName="w-[520px]"
             leftPaneClassName="p-4"
             leftPane={
@@ -59,41 +57,41 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                     <ModelDownloader modelGroup="z-image" />
 
                     <div className="px-4 mt-4">
-                        <div style={{ display: activeMode === 'generate' ? undefined : 'none' }}>
+                        <div style={{ display: activeMode === 'image-generate' ? undefined : 'none' }}>
                             <GenerateTab isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
                         </div>
-                        <div style={{ display: activeMode === 'hq' ? undefined : 'none' }}>
+                        <div style={{ display: activeMode === 'image-hq' ? undefined : 'none' }}>
                             <HQPortraitTab isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
                         </div>
-                        <div style={{ display: activeMode === 'img2img' ? undefined : 'none' }}>
+                        <div style={{ display: activeMode === 'image-img2img' ? undefined : 'none' }}>
                             <Img2ImgTab
                                 isGenerating={isGenerating}
                                 setIsGenerating={setIsGenerating}
-                                initialImageUrl={activeMode === 'img2img' ? pendingImageUrl : null}
+                                initialImageUrl={activeMode === 'image-img2img' ? pendingImageUrl : null}
                                 onConsumeImage={() => setPendingImageUrl(null)}
                             />
                         </div>
-                        <div style={{ display: activeMode === 'mood-edit' ? undefined : 'none' }}>
+                        <div style={{ display: activeMode === 'image-mood-edit' ? undefined : 'none' }}>
                             <MoodEditTab
                                 isGenerating={isGenerating}
                                 setIsGenerating={setIsGenerating}
-                                initialImageUrl={activeMode === 'mood-edit' ? pendingImageUrl : null}
+                                initialImageUrl={activeMode === 'image-mood-edit' ? pendingImageUrl : null}
                                 onConsumeImage={() => setPendingImageUrl(null)}
                             />
                         </div>
-                        <div style={{ display: activeMode === 'inpaint' ? undefined : 'none' }}>
+                        <div style={{ display: activeMode === 'image-inpaint' ? undefined : 'none' }}>
                             <InpaintTab
                                 isGenerating={isGenerating}
                                 setIsGenerating={setIsGenerating}
-                                initialImageUrl={activeMode === 'inpaint' ? pendingImageUrl : null}
+                                initialImageUrl={activeMode === 'image-inpaint' ? pendingImageUrl : null}
                                 onConsumeImage={() => setPendingImageUrl(null)}
                             />
                         </div>
-                        <div style={{ display: activeMode === 'metadata' ? undefined : 'none' }}>
+                        <div style={{ display: activeMode === 'image-metadata' ? undefined : 'none' }}>
                             <MetadataTab
                                 isGenerating={isGenerating}
                                 setIsGenerating={setIsGenerating}
-                                initialImageUrl={activeMode === 'metadata' ? pendingImageUrl : null}
+                                initialImageUrl={activeMode === 'image-metadata' ? pendingImageUrl : null}
                                 onConsumeImage={() => setPendingImageUrl(null)}
                             />
                         </div>

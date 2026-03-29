@@ -61,7 +61,12 @@ export const APP_CONFIG = {
 
 export const MODELS = {
     IMAGE: [
-        { id: 'z-image', label: 'Z-Image', icon: 'Sparkles' },
+        { id: 'image-generate', label: 'GENERATE', icon: 'Sparkles', category: 'Z-IMAGE' },
+        { id: 'image-hq', label: 'HQ IMAGE', icon: 'Layers', category: 'Z-IMAGE' },
+        { id: 'image-img2img', label: 'IMG2IMG', icon: 'Image', category: 'Z-IMAGE' },
+        { id: 'image-mood-edit', label: 'MOOD EDIT', icon: 'Sun', category: 'Z-IMAGE' },
+        { id: 'image-inpaint', label: 'INPAINT', icon: 'Paintbrush', category: 'Z-IMAGE' },
+        { id: 'image-metadata', label: 'METADATA', icon: 'FileText', category: 'Z-IMAGE' },
     ],
     QWEN: [
         { id: 'qwen-angle', label: 'MULTIANGLE', icon: 'Box', category: 'QWEN' },

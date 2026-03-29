@@ -212,7 +212,7 @@ export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: Model
     const pendingModels = modelStatus.filter((m) => !m.exists);
     const totalDownloaded = pendingModels.reduce((acc, m) => acc + (m.progress.downloaded || 0), 0);
     const totalSize = pendingModels.reduce((acc, m) => acc + (m.progress.total || 0), 0);
-    const percent = totalSize > 0 ? (totalDownloaded / totalSize) * 100 : 0;
+    const percent = totalSize > 0 ? Math.min(100, Math.max(0, (totalDownloaded / totalSize) * 100)) : 0;
 
     return (
         <div className="mx-8 mt-6 bg-[#121218] border border-white/10 rounded-xl overflow-hidden animate-in slide-in-from-top-2 duration-300">
@@ -267,7 +267,9 @@ export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: Model
                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-3">Model Status</div>
                         {modelStatus.map((m) => {
                             const isModelDownloading = !m.exists && m.progress?.status === 'downloading';
-                            const modelPercent = m.progress?.total > 0 ? (m.progress.downloaded / m.progress.total) * 100 : 0;
+                            const modelPercent = m.progress?.total > 0
+                                ? Math.min(100, Math.max(0, (m.progress.downloaded / m.progress.total) * 100))
+                                : 0;
 
                             return (
                                 <div key={m.id} className="bg-black/20 rounded-lg p-3 space-y-2">

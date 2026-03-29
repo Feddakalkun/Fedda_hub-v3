@@ -1296,7 +1296,7 @@ def start_download(model_info, hf_token=None):
                     speed_bytes = (current_size - last_speed_size) / elapsed
                     download_progress[model_id]['speed'] = speed_bytes
                     if speed_bytes > 0 and total_bytes > 0:
-                        remaining = total_bytes - current_size
+                        remaining = max(total_bytes - current_size, 0)
                         download_progress[model_id]['eta'] = remaining / speed_bytes
                     last_speed_size = current_size
                     last_speed_time = current_time
@@ -1304,7 +1304,8 @@ def start_download(model_info, hf_token=None):
                 # Log progress every 10 seconds
                 if current_time - last_log_time >= 10:
                     progress_gb = current_size / (1024**3)
-                    percent = (current_size / total_bytes * 100) if total_bytes > 0 else 0
+                    raw_percent = (current_size / total_bytes * 100) if total_bytes > 0 else 0
+                    percent = max(0.0, min(raw_percent, 100.0))
                     speed_mb = download_progress[model_id].get('speed', 0) / (1024**2)
                     eta_s = download_progress[model_id].get('eta', 0)
                     eta_str = f"{int(eta_s//60)}m{int(eta_s%60)}s" if eta_s > 0 else "..."
@@ -1381,6 +1382,12 @@ async def get_models_status(group: str = "z-image"):
         if model_exists and current_prog.get('status') in ('completed', 'error'):
             current_prog = {"status": "idle", "downloaded": 0, "total": 0}
             download_progress.pop(m['id'], None)
+        elif current_prog.get('status') == 'downloading' and current_prog.get('total', 0) > 0:
+            # Guardrail: never report >100% in UI if expected size metadata drifts.
+            current_prog = {
+                **current_prog,
+                "downloaded": min(current_prog.get('downloaded', 0), current_prog.get('total', 0))
+            }
 
         results.append({
             **m,

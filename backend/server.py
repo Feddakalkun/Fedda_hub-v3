@@ -1114,6 +1114,13 @@ REQUIRED_MODELS = {
 
 # Scene Builder uses the same WAN models as Lipsync
 REQUIRED_MODELS["scene-builder"] = REQUIRED_MODELS["lipsync"]
+# Image mode aliases (Z-Image submodes share the same model set)
+REQUIRED_MODELS["image-generate"] = REQUIRED_MODELS["z-image"]
+REQUIRED_MODELS["image-hq"] = REQUIRED_MODELS["z-image"]
+REQUIRED_MODELS["image-img2img"] = REQUIRED_MODELS["z-image"]
+REQUIRED_MODELS["image-mood-edit"] = REQUIRED_MODELS["z-image"]
+REQUIRED_MODELS["image-inpaint"] = REQUIRED_MODELS["z-image"]
+REQUIRED_MODELS["image-metadata"] = REQUIRED_MODELS["z-image"]
 # FLUX2KLEIN modes share the same base model set
 REQUIRED_MODELS["flux2klein-image-edit"] = REQUIRED_MODELS["flux2klein-txt2img9b"]
 REQUIRED_MODELS["flux2klein-2-referenceimg"] = REQUIRED_MODELS["flux2klein-txt2img9b"]

@@ -304,12 +304,10 @@ $LegacyFolders = @(
     "ComfyUI\custom_nodes\ComfyUI-FlowBuilder-Nodes",
     "ComfyUI\custom_nodes\ComfyUI-Aspire",
     "ComfyUI\custom_nodes\ComfyUI-AnimateDiff-Evolved",
-    "ComfyUI\custom_nodes\ComfyMath",
     "ComfyUI\custom_nodes\mikey_nodes",
     "ComfyUI\custom_nodes\joycaption_comfyui",
     "ComfyUI\custom_nodes\masquerade-nodes-comfyui",
     "ComfyUI\custom_nodes\chibi",
-    "ComfyUI\custom_nodes\comfy-image-saver",
     "ComfyUI\custom_nodes\ComfyUI-Timer-Nodes",
     "ComfyUI\custom_nodes\ComfyUI-Image-Saver",
     "ComfyUI\custom_nodes\ComfyUI-VoxCPM",
@@ -317,6 +315,18 @@ $LegacyFolders = @(
     "ComfyUI\custom_nodes\Derfuu_ComfyUI_ModdedNodes",
     "ComfyUI\custom_nodes\Bjornulf_custom_nodes"
 )
+
+# Ensure required ComfyUI core dependencies are in sync after ComfyUI updates
+Write-Host "`n[2a/3] Syncing ComfyUI requirements..." -ForegroundColor Yellow
+$ComfyRequirements = Join-Path $ComfyDir "requirements.txt"
+if (Test-Path $ComfyRequirements) {
+    try {
+        & $PyExe -m pip install -r "$ComfyRequirements" --no-warn-script-location 2>&1 | Out-Null
+        Write-Host "  ComfyUI requirements synced." -ForegroundColor Green
+    } catch {
+        Write-Host "  [WARNING] ComfyUI requirements sync failed (non-fatal): $_" -ForegroundColor Yellow
+    }
+}
 
 $CleanedCount = 0
 foreach ($file in $LegacyFiles) {

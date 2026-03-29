@@ -11,6 +11,9 @@ class ComfyUIService {
     private reconnectAttempts: number = 0;
     private objectInfoCache: Record<string, any> | null = null;
     private objectInfoCacheAt = 0;
+    private static readonly COMPUTE_MODE_KEY = 'fedda_compute_mode';
+    private static readonly RUNPOD_URL_KEY = 'runpodUrl';
+    private static readonly RUNPOD_TOKEN_KEY = 'runpodToken';
 
     private detectWorkflowContext(workflow: any): {
         ltx: boolean;
@@ -47,6 +50,48 @@ class ComfyUIService {
         return `comfyfront_${Math.random().toString(36).substr(2, 9)}`;
     }
 
+    private getComputeMode(): 'local' | 'runpod_pod' | 'runpod_serverless_batch' {
+        const mode = (localStorage.getItem(ComfyUIService.COMPUTE_MODE_KEY) || 'local').trim();
+        if (mode === 'runpod_pod' || mode === 'runpod_serverless_batch') return mode;
+        return 'local';
+    }
+
+    private deriveRunPodBase(url: string): string {
+        const trimmed = (url || '').trim();
+        if (!trimmed) return '';
+        return trimmed.replace(/\/prompt\/?$/i, '').replace(/\/+$/i, '');
+    }
+
+    private getComfyBaseUrl(): string {
+        if (this.getComputeMode() === 'runpod_pod') {
+            const runpodUrl = localStorage.getItem(ComfyUIService.RUNPOD_URL_KEY) || '';
+            const base = this.deriveRunPodBase(runpodUrl);
+            if (base) return base;
+        }
+        return COMFY_API.BASE_URL;
+    }
+
+    private getComfyWsUrl(): string {
+        if (this.getComputeMode() === 'runpod_pod') {
+            const runpodUrl = localStorage.getItem(ComfyUIService.RUNPOD_URL_KEY) || '';
+            const base = this.deriveRunPodBase(runpodUrl);
+            if (base) {
+                // Convert runpod HTTP(S) endpoint base to ws path.
+                return base.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:') + '/ws';
+            }
+        }
+        return COMFY_API.WS_URL;
+    }
+
+    private getAuthHeaders(): Record<string, string> {
+        const headers: Record<string, string> = {};
+        if (this.getComputeMode() === 'runpod_pod') {
+            const token = (localStorage.getItem(ComfyUIService.RUNPOD_TOKEN_KEY) || '').trim();
+            if (token) headers.Authorization = `Bearer ${token}`;
+        }
+        return headers;
+    }
+
     /**
      * Wait for WebSocket to be ready (connected)
      */
@@ -70,8 +115,9 @@ class ComfyUIService {
      */
     async isAlive(): Promise<boolean> {
         try {
-            const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.SYSTEM_STATS}`, {
+            const response = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.SYSTEM_STATS}`, {
                 method: 'GET',
+                headers: this.getAuthHeaders(),
             });
             return response.ok;
         } catch {
@@ -85,7 +131,9 @@ class ComfyUIService {
      * Get system statistics (CPU, RAM, VRAM)
      */
     async getSystemStats(): Promise<any> {
-        const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.SYSTEM_STATS}`);
+        const response = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.SYSTEM_STATS}`, {
+            headers: this.getAuthHeaders(),
+        });
         if (!response.ok) {
             // Silently fail - status indicator already shows offline state
             throw new Error('Failed to fetch system stats');
@@ -117,10 +165,11 @@ class ComfyUIService {
             client_id: this.clientId,
         };
 
-        const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.PROMPT}`, {
+        const response = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.PROMPT}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...this.getAuthHeaders(),
             },
             body: JSON.stringify(payload),
         });
@@ -162,7 +211,9 @@ class ComfyUIService {
             return this.objectInfoCache;
         }
         try {
-            const res = await fetch(`${COMFY_API.BASE_URL}/object_info`);
+            const res = await fetch(`${this.getComfyBaseUrl()}/object_info`, {
+                headers: this.getAuthHeaders(),
+            });
             if (!res.ok) return null;
             const data = await res.json();
             this.objectInfoCache = data;
@@ -365,8 +416,9 @@ class ComfyUIService {
      * Interrupt the currently running workflow execution
      */
     async interrupt(): Promise<void> {
-        const response = await fetch(`${COMFY_API.BASE_URL}/interrupt`, {
+        const response = await fetch(`${this.getComfyBaseUrl()}/interrupt`, {
             method: 'POST',
+            headers: this.getAuthHeaders(),
         });
         if (!response.ok) {
             throw new Error('Failed to interrupt execution');
@@ -377,7 +429,9 @@ class ComfyUIService {
      * Get current queue status
      */
     async getQueue(): Promise<{ queue_running: ComfyQueueItem[]; queue_pending: ComfyQueueItem[] }> {
-        const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.QUEUE}`);
+        const response = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.QUEUE}`, {
+            headers: this.getAuthHeaders(),
+        });
 
         if (!response.ok) {
             throw new Error('Failed to fetch queue');
@@ -391,10 +445,10 @@ class ComfyUIService {
      */
     async getHistory(promptId?: string): Promise<Record<string, ComfyHistoryItem>> {
         const url = promptId
-            ? `${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.HISTORY}/${promptId}`
-            : `${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.HISTORY}`;
+            ? `${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.HISTORY}/${promptId}`
+            : `${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.HISTORY}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: this.getAuthHeaders() });
 
         if (!response.ok) {
             throw new Error('Failed to fetch history');
@@ -413,7 +467,7 @@ class ComfyUIService {
             type,
         });
 
-        return `${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.VIEW}?${params}`;
+        return `${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.VIEW}?${params}`;
     }
 
     /**
@@ -423,8 +477,9 @@ class ComfyUIService {
         const formData = new FormData();
         formData.append('image', file);
 
-        const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.UPLOAD_IMAGE}`, {
+        const response = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.UPLOAD_IMAGE}`, {
             method: 'POST',
+            headers: this.getAuthHeaders(),
             body: formData,
         });
 
@@ -442,7 +497,9 @@ class ComfyUIService {
     async getLoras(): Promise<string[]> {
         // Try the modern models API first (ComfyUI 0.3+)
         try {
-            const response = await fetch(`${COMFY_API.BASE_URL}/api/models/loras`);
+            const response = await fetch(`${this.getComfyBaseUrl()}/api/models/loras`, {
+                headers: this.getAuthHeaders(),
+            });
             if (response.ok) {
                 const data = await response.json();
                 if (Array.isArray(data) && data.length > 0) {
@@ -457,7 +514,9 @@ class ComfyUIService {
 
         for (const type of nodeTypes) {
             try {
-                const response = await fetch(`${COMFY_API.BASE_URL}/object_info/${type}`);
+                const response = await fetch(`${this.getComfyBaseUrl()}/object_info/${type}`, {
+                    headers: this.getAuthHeaders(),
+                });
                 if (!response.ok) continue;
 
                 const data = await response.json();
@@ -486,7 +545,9 @@ class ComfyUIService {
      */
     async getStyles(): Promise<string[]> {
         try {
-            const response = await fetch(`${COMFY_API.BASE_URL}/object_info/Load Styles CSV`);
+            const response = await fetch(`${this.getComfyBaseUrl()}/object_info/Load Styles CSV`, {
+                headers: this.getAuthHeaders(),
+            });
             if (!response.ok) throw new Error('Failed to fetch styles');
 
             const data = await response.json();
@@ -500,7 +561,9 @@ class ComfyUIService {
     }
     async getCheckpoints(): Promise<string[]> {
         try {
-            const response = await fetch(`${COMFY_API.BASE_URL}/object_info/CheckpointLoaderSimple`);
+            const response = await fetch(`${this.getComfyBaseUrl()}/object_info/CheckpointLoaderSimple`, {
+                headers: this.getAuthHeaders(),
+            });
             if (!response.ok) throw new Error('Failed to fetch checkpoints');
 
             const data = await response.json();
@@ -513,7 +576,9 @@ class ComfyUIService {
 
     private async getObjectInfoNode(nodeName: string): Promise<any | null> {
         try {
-            const response = await fetch(`${COMFY_API.BASE_URL}/object_info/${encodeURIComponent(nodeName)}`);
+            const response = await fetch(`${this.getComfyBaseUrl()}/object_info/${encodeURIComponent(nodeName)}`, {
+                headers: this.getAuthHeaders(),
+            });
             if (!response.ok) return null;
             return await response.json();
         } catch {
@@ -574,7 +639,7 @@ class ComfyUIService {
         }
 
         this.wsReady = false;
-        this.ws = new WebSocket(`${COMFY_API.WS_URL}?clientId=${this.clientId}`);
+        this.ws = new WebSocket(`${this.getComfyWsUrl()}?clientId=${this.clientId}`);
         this.updateCallbacks(callbacks);
 
         this.ws.onopen = () => {
@@ -672,8 +737,9 @@ class ComfyUIService {
 
         // Let's verify if we need a specific audio endpoint. 
         // Usually /upload/image with overwrite=true works for all inputs.
-        const response = await fetch(`${COMFY_API.BASE_URL}${COMFY_API.ENDPOINTS.UPLOAD_IMAGE}`, {
+        const response = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.UPLOAD_IMAGE}`, {
             method: 'POST',
+            headers: this.getAuthHeaders(),
             body: formData,
         });
 
@@ -709,9 +775,9 @@ class ComfyUIService {
 
     async freeMemory(unloadModels: boolean = true, freeCache: boolean = true): Promise<void> {
         try {
-            await fetch(`${COMFY_API.BASE_URL}/free`, {
+            await fetch(`${this.getComfyBaseUrl()}/free`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
                 body: JSON.stringify({
                     unload_models: unloadModels,
                     free_memory: freeCache

@@ -11,22 +11,36 @@ export interface NodeInstallStatus {
 
 export const useRunPodSettings = () => {
     const { toast } = useToast();
+    const [computeMode, setComputeMode] = useState<'local' | 'runpod_pod' | 'runpod_serverless_batch'>('local');
     const [runpodUrl, setRunpodUrl] = useState('');
     const [runpodToken, setRunpodToken] = useState('');
     const [runpodExplorerUrl, setRunpodExplorerUrl] = useState('');
+    const [idleStopMinutes, setIdleStopMinutes] = useState(15);
     const [nodeInstallStatus, setNodeInstallStatus] = useState<NodeInstallStatus | null>(null);
     const [isLoadingNodeStatus, setIsLoadingNodeStatus] = useState(false);
 
     useEffect(() => {
+        const rawMode = (localStorage.getItem('fedda_compute_mode') || 'local').trim();
+        if (rawMode === 'runpod_pod' || rawMode === 'runpod_serverless_batch') {
+            setComputeMode(rawMode);
+        } else {
+            setComputeMode('local');
+        }
         setRunpodUrl(localStorage.getItem('runpodUrl') || '');
         setRunpodToken(localStorage.getItem('runpodToken') || '');
         setRunpodExplorerUrl(localStorage.getItem('runpodExplorerUrl') || '');
+        const idleRaw = Number(localStorage.getItem('fedda_idle_stop_minutes') || '15');
+        if (Number.isFinite(idleRaw) && idleRaw > 0) {
+            setIdleStopMinutes(Math.round(idleRaw));
+        }
     }, []);
 
     const saveRunpodSettings = () => {
+        localStorage.setItem('fedda_compute_mode', computeMode);
         localStorage.setItem('runpodUrl', runpodUrl);
         localStorage.setItem('runpodToken', runpodToken);
         localStorage.setItem('runpodExplorerUrl', runpodExplorerUrl);
+        localStorage.setItem('fedda_idle_stop_minutes', String(idleStopMinutes));
         toast('RunPod settings saved!', 'success');
     };
 
@@ -136,12 +150,16 @@ export const useRunPodSettings = () => {
     }, []);
 
     return {
+        computeMode,
+        setComputeMode,
         runpodUrl,
         setRunpodUrl,
         runpodToken,
         setRunpodToken,
         runpodExplorerUrl,
         setRunpodExplorerUrl,
+        idleStopMinutes,
+        setIdleStopMinutes,
         nodeInstallStatus,
         isLoadingNodeStatus,
         saveRunpodSettings,

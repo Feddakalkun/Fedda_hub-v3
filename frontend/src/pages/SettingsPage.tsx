@@ -47,12 +47,16 @@ export const SettingsPage = () => {
     } = useOllamaManager();
 
     const {
+        computeMode,
+        setComputeMode,
         runpodUrl,
         setRunpodUrl,
         runpodToken,
         setRunpodToken,
         runpodExplorerUrl,
         setRunpodExplorerUrl,
+        idleStopMinutes,
+        setIdleStopMinutes,
         nodeInstallStatus,
         isLoadingNodeStatus,
         saveRunpodSettings,
@@ -446,10 +450,27 @@ export const SettingsPage = () => {
                         Cloud Engines / RunPod Integration
                     </h2>
                     <p className="text-sm text-slate-400">
-                        Enter your RunPod Serverless or Pod endpoint URL and Bearer token below. This allows you to select images in the Gallery and render Wan2.1 First/Last Frame loops directly in the cloud.
+                        Route generation between local ComfyUI and RunPod pod compute. This lets you keep FEDDA UI local while offloading heavy jobs to cloud GPU.
                     </p>
 
                     <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                Compute Mode
+                            </label>
+                            <select
+                                value={computeMode}
+                                onChange={(e) => setComputeMode(e.target.value as 'local' | 'runpod_pod' | 'runpod_serverless_batch')}
+                                className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-white/20"
+                            >
+                                <option value="local">Local ComfyUI</option>
+                                <option value="runpod_pod">RunPod Pod (Remote ComfyUI)</option>
+                                <option value="runpod_serverless_batch">RunPod Serverless Batch (reserved)</option>
+                            </select>
+                            <p className="text-xs text-slate-500 mt-2">
+                                Current rollout supports Local and RunPod Pod. Serverless batch mode is reserved for upcoming batch lane.
+                            </p>
+                        </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                                 RunPod Endpoint URL (e.g., https://xyz-8188.proxy.runpod.net/prompt)
@@ -487,6 +508,22 @@ export const SettingsPage = () => {
                             />
                             <p className="text-xs text-slate-500 mt-2">
                                 If empty, explorer defaults to your endpoint base URL. For Jupyter/Lab file browser, paste the full /lab/tree URL.
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                                Auto-stop after inactivity (minutes)
+                            </label>
+                            <input
+                                type="number"
+                                min={5}
+                                max={180}
+                                value={idleStopMinutes}
+                                onChange={(e) => setIdleStopMinutes(Math.max(5, Math.min(180, Number(e.target.value) || 15)))}
+                                className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-white/20"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Stored now for idle policy rollout. Default: 15 min.
                             </p>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">

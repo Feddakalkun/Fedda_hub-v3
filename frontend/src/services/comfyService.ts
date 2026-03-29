@@ -9,6 +9,8 @@ class ComfyUIService {
     private wsReady: boolean = false;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private reconnectAttempts: number = 0;
+    private objectInfoCache: Record<string, any> | null = null;
+    private objectInfoCacheAt = 0;
 
     constructor() {
         this.clientId = this.generateClientId();
@@ -81,6 +83,7 @@ class ComfyUIService {
     async queuePrompt(workflow: any): Promise<{ prompt_id: string }> {
         // Wait for WebSocket to be ready before queueing to prevent first-batch failures
         await this.waitForWebSocket();
+        await this.normalizeWorkflowForCurrentComfy(workflow);
 
         const payload: ComfyPrompt = {
             prompt: workflow,
@@ -124,6 +127,155 @@ class ComfyUIService {
         }
 
         return await response.json();
+    }
+
+    private async getObjectInfoCached(): Promise<Record<string, any> | null> {
+        const now = Date.now();
+        if (this.objectInfoCache && now - this.objectInfoCacheAt < 10_000) {
+            return this.objectInfoCache;
+        }
+        try {
+            const res = await fetch(`${COMFY_API.BASE_URL}/object_info`);
+            if (!res.ok) return null;
+            const data = await res.json();
+            this.objectInfoCache = data;
+            this.objectInfoCacheAt = now;
+            return data;
+        } catch {
+            return null;
+        }
+    }
+
+    private getComboOptions(inputSpec: any): any[] {
+        // Legacy format: [ [options...], {...} ]
+        if (Array.isArray(inputSpec) && Array.isArray(inputSpec[0])) {
+            return inputSpec[0];
+        }
+        // New format: [ "COMBO", { options: [...] } ]
+        if (
+            Array.isArray(inputSpec) &&
+            typeof inputSpec[0] === 'string' &&
+            inputSpec[0] === 'COMBO' &&
+            inputSpec[1] &&
+            Array.isArray(inputSpec[1].options)
+        ) {
+            return inputSpec[1].options;
+        }
+        return [];
+    }
+
+    private pickBestComboValue(
+        inputName: string,
+        currentValue: any,
+        options: any[]
+    ): any {
+        if (!options.length) return currentValue;
+        const current = String(currentValue ?? '').toLowerCase();
+        const wants = (needle: string) => current.includes(needle);
+        const find = (needle: string) => options.find((o) => String(o).toLowerCase().includes(needle));
+
+        // Prefer consistent "off" style when style preset is invalid
+        if (inputName === 'styles') {
+            const noStyle = find('no style');
+            if (noStyle !== undefined) return noStyle;
+        }
+
+        // LTX/Gemma/Qwen name normalization
+        if (wants('gemma')) {
+            const gemma = find('gemma');
+            if (gemma !== undefined) return gemma;
+        }
+        if (wants('qwen')) {
+            const qwen = find('qwen');
+            if (qwen !== undefined) return qwen;
+        }
+        if (wants('wan')) {
+            const wan = find('wan');
+            if (wan !== undefined) return wan;
+        }
+        if (wants('ltx')) {
+            const ltx = find('ltx');
+            if (ltx !== undefined) return ltx;
+        }
+        if (wants('flux-2-klein') || wants('flux2klein')) {
+            const klein = find('flux-2-klein');
+            if (klein !== undefined) return klein;
+        }
+        if (wants('z-image') || wants('z_image')) {
+            const z = find('z-image') ?? find('z_image');
+            if (z !== undefined) return z;
+        }
+
+        // Empty lora values are common in templates; pick first to avoid hard failure.
+        if (current === '' && inputName.toLowerCase().includes('lora')) {
+            return options[0];
+        }
+
+        // Generic fallback
+        return options[0];
+    }
+
+    private getDefaultValue(inputSpec: any): any | undefined {
+        if (!Array.isArray(inputSpec)) return undefined;
+        const meta = inputSpec[1];
+        if (meta && typeof meta === 'object' && 'default' in meta) return meta.default;
+        const options = this.getComboOptions(inputSpec);
+        if (options.length) return options[0];
+        return undefined;
+    }
+
+    private async normalizeWorkflowForCurrentComfy(workflow: any): Promise<void> {
+        if (!workflow || typeof workflow !== 'object') return;
+        const objectInfo = await this.getObjectInfoCached();
+        if (!objectInfo) return;
+
+        let replacements = 0;
+
+        for (const nodeId of Object.keys(workflow)) {
+            const node = workflow[nodeId];
+            if (!node || typeof node !== 'object') continue;
+            const classType = node.class_type;
+            if (!classType || !objectInfo[classType]) continue;
+            if (!node.inputs || typeof node.inputs !== 'object') continue;
+
+            const inputSpec = objectInfo[classType]?.input || {};
+            const required = inputSpec.required || {};
+            const optional = inputSpec.optional || {};
+
+            // Fix invalid combo values
+            for (const [inputName, currentValue] of Object.entries(node.inputs)) {
+                // Skip linked inputs: ["nodeId", outputIndex]
+                if (Array.isArray(currentValue) && currentValue.length >= 2 && typeof currentValue[0] === 'string') {
+                    continue;
+                }
+
+                const spec = required[inputName] ?? optional[inputName];
+                if (!spec) continue;
+                const options = this.getComboOptions(spec);
+                if (!options.length) continue;
+                if (options.includes(currentValue)) continue;
+
+                const nextValue = this.pickBestComboValue(inputName, currentValue, options);
+                if (nextValue !== currentValue) {
+                    node.inputs[inputName] = nextValue;
+                    replacements++;
+                }
+            }
+
+            // Fill missing required inputs when a safe default is provided by node schema
+            for (const [inputName, spec] of Object.entries(required)) {
+                if (inputName in node.inputs) continue;
+                const def = this.getDefaultValue(spec);
+                if (def !== undefined) {
+                    node.inputs[inputName] = def;
+                    replacements++;
+                }
+            }
+        }
+
+        if (replacements > 0) {
+            addUiLog('info', 'comfy', 'Workflow preflight normalization', `${replacements} compatibility adjustments applied`);
+        }
     }
 
     /**

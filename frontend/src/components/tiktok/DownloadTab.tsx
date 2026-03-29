@@ -31,6 +31,7 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
     const [instagramProfileUrl, setInstagramProfileUrl] = usePersistentState('social_download_instagram_profile_url', '');
     const [instagramPostUrl, setInstagramPostUrl] = usePersistentState('social_download_instagram_post_url', '');
     const [vscoProfileUrl, setVscoProfileUrl] = usePersistentState('social_download_vsco_profile_url', '');
+    const [vscoVisibleBrowser, setVscoVisibleBrowser] = usePersistentState('social_download_vsco_visible_browser', false);
     const [cookieSource, setCookieSource] = usePersistentState('tiktok_download_cookie_source', 'none');
     const [limit, setLimit] = usePersistentState('tiktok_download_limit', '');
     const [jobs, setJobs] = useState<DownloadJob[]>([]);
@@ -229,7 +230,10 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
             const res = await fetch(`${BACKEND_API.BASE_URL}/api/social/vsco/download-profile`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: vscoProfileUrl.trim() }),
+                body: JSON.stringify({
+                    url: vscoProfileUrl.trim(),
+                    visible_browser: !!vscoVisibleBrowser,
+                }),
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -374,6 +378,15 @@ export const DownloadTab = ({ onDownloadComplete }: { onDownloadComplete?: () =>
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-white/20 transition-colors"
                     onKeyDown={e => e.key === 'Enter' && handleDownloadVscoProfile()}
                 />
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                    <input
+                        type="checkbox"
+                        checked={!!vscoVisibleBrowser}
+                        onChange={e => setVscoVisibleBrowser(e.target.checked)}
+                        className="accent-white"
+                    />
+                    Use visible browser mode (helps with VSCO 403/Cloudflare)
+                </label>
                 <button
                     onClick={handleDownloadVscoProfile}
                     disabled={!vscoProfileUrl.trim()}

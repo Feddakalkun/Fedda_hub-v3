@@ -1615,6 +1615,7 @@ class SocialDownloadRequest(BaseModel):
     url: str
     cookie_source: str = "none"
     limit: Optional[int] = None
+    visible_browser: bool = False
 
 def _check_tiktok():
     if tiktok_service is None:
@@ -1732,7 +1733,7 @@ async def social_instagram_download_post(req: SocialDownloadRequest):
 @app.post("/api/social/vsco/download-profile")
 async def social_vsco_download_profile(req: SocialDownloadRequest):
     _check_social()
-    job_id = social_service.start_vsco_download(req.url)
+    job_id = social_service.start_vsco_download(req.url, req.visible_browser)
     return {"job_id": job_id, "status": "started"}
 
 

@@ -132,9 +132,13 @@ def _instagram_download_thread(job_id: str, url: str, cookie_source: str, limit:
         _append_log(job_id, f"Error: {e}")
 
 
-def start_vsco_download(url: str) -> str:
+def start_vsco_download(url: str, visible_browser: bool = False) -> str:
     job_id = _new_job("vsco", url)
-    thread = threading.Thread(target=_vsco_download_thread, args=(job_id, url), daemon=True)
+    thread = threading.Thread(
+        target=_vsco_download_thread,
+        args=(job_id, url, visible_browser),
+        daemon=True,
+    )
     thread.start()
     return job_id
 
@@ -158,13 +162,17 @@ def _extract_vsco_site_id(html: str) -> Optional[str]:
     return None
 
 
-def _open_browser(url: str):
+def _open_browser(url: str, headless: bool = True):
     opts = ChromeOptions()
-    opts.add_argument("--headless=new")
+    if headless:
+        opts.add_argument("--headless=new")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--window-size=1280,2200")
+    opts.add_argument("--lang=en-US")
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option("useAutomationExtension", False)
     opts.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -173,6 +181,9 @@ def _open_browser(url: str):
         service=ChromeService(ChromeDriverManager().install()),
         options=opts,
     )
+    driver.get("https://vsco.co/")
+    import time
+    time.sleep(1.5)
     driver.get(url)
     import time
     time.sleep(6)
@@ -205,7 +216,7 @@ def _guess_vsco_profile(url: str) -> str:
     return path[0] if path and path[0] else f"vsco_{uuid.uuid4().hex[:6]}"
 
 
-def _vsco_download_thread(job_id: str, url: str) -> None:
+def _vsco_download_thread(job_id: str, url: str, visible_browser: bool = False) -> None:
     try:
         headers = {
             "User-Agent": (
@@ -231,8 +242,9 @@ def _vsco_download_thread(job_id: str, url: str) -> None:
                 raise ValueError(
                     "VSCO blocked direct access (403). Install selenium + webdriver-manager for browser fallback."
                 )
-            _append_log(job_id, "VSCO returned 403. Trying browser fallback (selenium)...")
-            driver = _open_browser(url)
+            mode = "visible browser" if visible_browser else "headless browser"
+            _append_log(job_id, f"VSCO returned 403. Trying {mode} fallback (selenium)...")
+            driver = _open_browser(url, headless=not visible_browser)
             browser_mode = True
             html = driver.page_source
 
@@ -271,9 +283,9 @@ def _vsco_download_thread(job_id: str, url: str) -> None:
                     if not cursor:
                         break
 
-            total = len(medias)
-            if total == 0:
-                raise ValueError("No VSCO media found")
+        total = len(medias)
+        if total == 0:
+            raise ValueError("No VSCO media found")
 
         with requests.Session() as s:
             for idx, media in enumerate(medias, start=1):

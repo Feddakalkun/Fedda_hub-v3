@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { comfyService } from '../services/comfyService';
 import { Loader2, Play, CheckCircle2 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -25,26 +24,30 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
         let isMounted = true;
         const checkStatus = async () => {
             try {
-                const healthRes = await fetch('/health', { cache: 'no-store' });
-                const backendAlive = healthRes.ok;
+                let backendAlive = false;
                 let detail = 'Initializing services...';
 
                 let nodePhase = '';
                 let bgTail: string[] = [];
-                if (backendAlive) {
-                    try {
-                        const nodeRes = await fetch('/api/system/node-install-status', { cache: 'no-store' });
-                        if (nodeRes.ok) {
-                            const nodeData = await nodeRes.json();
-                            nodePhase = nodeData?.phase || '';
-                            bgTail = Array.isArray(nodeData?.bg_log_tail) ? nodeData.bg_log_tail : [];
-                        }
-                    } catch {
-                        // Optional status endpoint; ignore in local setups where it may not provide useful data
+                try {
+                    const nodeRes = await fetch('/api/system/node-install-status', { cache: 'no-store' });
+                    backendAlive = nodeRes.ok;
+                    if (nodeRes.ok) {
+                        const nodeData = await nodeRes.json();
+                        nodePhase = nodeData?.phase || '';
+                        bgTail = Array.isArray(nodeData?.bg_log_tail) ? nodeData.bg_log_tail : [];
                     }
+                } catch {
+                    backendAlive = false;
                 }
 
-                const comfyAlive = await comfyService.isAlive();
+                let comfyAlive = false;
+                try {
+                    const comfyRes = await fetch('/comfy/system_stats', { cache: 'no-store' });
+                    comfyAlive = comfyRes.ok;
+                } catch {
+                    comfyAlive = false;
+                }
 
                 if (!backendAlive) {
                     detail = 'Starting backend API service...';

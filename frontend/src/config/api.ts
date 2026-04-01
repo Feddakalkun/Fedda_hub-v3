@@ -99,6 +99,9 @@ export const MODELS = {
     AUDIO: [
         { id: 'ace-step', label: 'ACE-Step 1.5', icon: 'Music' },
     ],
+    PONYXL: [
+        { id: 'ponyxl-generate', label: 'GENERATE', icon: 'Sparkles', category: 'PONYXL' },
+    ],
 };
 
 

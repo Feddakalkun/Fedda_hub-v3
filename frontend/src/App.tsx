@@ -3,6 +3,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { ImagePage } from './pages/ImagePage';
 import { QwenAnglePage } from './pages/QwenAnglePage';
 import { Flux2KleinPage } from './pages/Flux2KleinPage';
+import { PonyXLPage } from './pages/PonyXLPage';
 import { VideoPage } from './pages/VideoPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AudioPage } from './pages/AudioPage';
@@ -27,6 +28,7 @@ const VALID_TABS = new Set([
   'qwen',
   'flux2klein',
   'ltxhub',
+  'ponyxl',
   'video',
   'audio',
   'logs',
@@ -42,6 +44,7 @@ const MODEL_TAB_MAP = {
   qwen: MODELS.QWEN,
   flux2klein: MODELS.FLUX2KLEIN,
   ltxhub: MODELS.LTXHUB,
+  ponyxl: MODELS.PONYXL,
   video: MODELS.VIDEO,
   audio: MODELS.AUDIO,
 } as const;
@@ -348,7 +351,7 @@ function App() {
                                 : activeTab === 'logs'
                                   ? 'Console'
                                   : activeTab}
-                  {['image', 'qwen', 'flux2klein', 'ltxhub', 'video', 'audio'].includes(activeTab) && (
+                  {['image', 'qwen', 'flux2klein', 'ltxhub', 'ponyxl', 'video', 'audio'].includes(activeTab) && (
                     <span className="text-sm font-normal text-slate-500 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
                       {activeTab}
                     </span>
@@ -388,6 +391,10 @@ function App() {
 
                 <div className="h-full" style={{ display: activeTab === 'flux2klein' ? undefined : 'none' }}>
                   <Flux2KleinPage modelId={currentModel.id} modelLabel={currentModel.label} />
+                </div>
+
+                <div className="h-full" style={{ display: activeTab === 'ponyxl' ? undefined : 'none' }}>
+                  <PonyXLPage modelId={currentModel.id} modelLabel={currentModel.label} />
                 </div>
 
                 <div className="h-full" style={{ display: activeTab === 'ltxhub' ? undefined : 'none' }}>

@@ -12,6 +12,7 @@ import {
     Images,
     Film,
     Download,
+    Wand2,
 } from 'lucide-react';
 import { APP_CONFIG, MODELS } from '../../config/api';
 
@@ -58,6 +59,7 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
                 { id: 'qwen', label: 'QWEN', icon: Box, models: MODELS.QWEN },
                 { id: 'flux2klein', label: 'FLUX2KLEIN', icon: Sparkles, models: MODELS.FLUX2KLEIN },
                 { id: 'ltxhub', label: 'LTX Hub', icon: Video, models: MODELS.LTXHUB },
+                { id: 'ponyxl', label: 'PonyXL', icon: Wand2, models: MODELS.PONYXL },
                 { id: 'audio', label: 'Audio/SFX', icon: Music, models: MODELS.AUDIO },
             ] as SidebarItem[],
         },

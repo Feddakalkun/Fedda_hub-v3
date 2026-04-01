@@ -6,6 +6,8 @@ import threading
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
 import uuid
+import time
+from urllib.parse import quote
 
 # Global storage for tracking download progress
 download_progress = {}
@@ -15,15 +17,55 @@ import_jobs = {}
 PREMIUM_DRIVE_FOLDER_ID = "1jdliAnhXJG2TdqU6tNi5tbpoAOPuJalv"
 ZIMAGE_TURBO_REPO = "pmczip/Z-Image-Turbo_Models"
 HF_TIMEOUT = 30
+LORA_PREVIEW_ROOT = "_preview_packs"
 
-zimage_sync_state = {
-    "status": "idle",  # idle | running | completed | error
-    "message": "",
-    "downloaded": 0,
-    "skipped": 0,
-    "total": 0,
+PACK_CONFIGS = {
+    "zimage_turbo": {
+        "repo": "pmczip/Z-Image-Turbo_Models",
+        "folder": "zimage_turbo",
+        "label": "Z-Image Turbo Celeb Pack",
+    },
+    "flux2klein": {
+        "repo": "pmczip/FLUX.2-klein-9B_Models",
+        "folder": "flux2klein",
+        "label": "FLUX2KLEIN Celeb Pack",
+    },
+    "flux1dev": {
+        "repo": "pmczip/FLUX.1-dev_Models",
+        "folder": "flux1dev",
+        "label": "FLUX.1-dev Celeb Pack",
+    },
+    "sd15": {
+        "repo": "pmczip/SD1.5_LoRa_Models",
+        "folder": "sd15",
+        "label": "SD1.5 LoRA Pack",
+    },
+    "sd15_lycoris": {
+        "repo": "pmczip/SD1.5_LyCORIS_Models",
+        "folder": "sd15_lycoris",
+        "label": "SD1.5 LyCORIS Pack",
+    },
+    "sdxl": {
+        "repo": "pmczip/SDXL_Models",
+        "folder": "sdxl",
+        "label": "SDXL LoRA Pack",
+    },
 }
-_zimage_sync_lock = threading.Lock()
+
+pack_sync_state = {}
+_pack_sync_locks = {}
+for _key in PACK_CONFIGS.keys():
+    pack_sync_state[_key] = {
+        "status": "idle",  # idle | running | completed | error
+        "message": "",
+        "downloaded": 0,
+        "skipped": 0,
+        "total": 0,
+    }
+    _pack_sync_locks[_key] = threading.Lock()
+
+_repo_tree_cache = {}
+_REPO_TREE_TTL_SECONDS = 300
 
 
 def _get_gdrive_confirm_token(response):
@@ -228,9 +270,9 @@ def refresh_comfy_models():
         return False
 
 
-def start_lora_download(url: str, filename: str, headers: Optional[dict] = None):
+def start_lora_download(url: str, filename: str, headers: Optional[dict] = None, lora_subfolder: str = "premium"):
     """Triggers a background thread to download the LoRA."""
-    comfy_loras = Path(__file__).parent.parent / "ComfyUI" / "models" / "loras" / "premium"
+    comfy_loras = Path(__file__).parent.parent / "ComfyUI" / "models" / "loras" / lora_subfolder
     thread = threading.Thread(target=download_lora_task, args=(url, filename, comfy_loras, headers))
     thread.start()
     return {"status": "started", "filename": filename}
@@ -335,12 +377,26 @@ def get_lora_import_status(job_id: str):
     return {"success": True, "job_id": job_id, "filename": job["filename"], "provider": job.get("provider"), **status}
 
 
-def _list_hf_safetensors(repo_id: str):
-    """List .safetensors files in an HF model repo root."""
+def _get_hf_repo_tree(repo_id: str, recursive: bool = True):
+    cache_key = f"{repo_id}::recursive={int(recursive)}"
+    now = time.time()
+    cached = _repo_tree_cache.get(cache_key)
+    if cached and (now - cached.get("ts", 0) < _REPO_TREE_TTL_SECONDS):
+        return cached.get("items", [])
+
     url = f"https://huggingface.co/api/models/{repo_id}/tree/main"
+    if recursive:
+        url += "?recursive=1"
     response = requests.get(url, timeout=HF_TIMEOUT)
     response.raise_for_status()
     items = response.json() if isinstance(response.json(), list) else []
+    _repo_tree_cache[cache_key] = {"ts": now, "items": items}
+    return items
+
+
+def _list_hf_safetensors(repo_id: str):
+    """List .safetensors files in an HF model repo root."""
+    items = _get_hf_repo_tree(repo_id, recursive=False)
     files = []
     for item in items:
         path = str(item.get("path", "")).strip()
@@ -349,16 +405,60 @@ def _list_hf_safetensors(repo_id: str):
     return sorted(set(files))
 
 
+def _list_hf_images(repo_id: str):
+    """List image files in HF repo recursively."""
+    items = _get_hf_repo_tree(repo_id, recursive=True)
+    exts = (".png", ".jpg", ".jpeg", ".webp")
+    files = []
+    for item in items:
+        path = str(item.get("path", "")).strip()
+        if path.lower().endswith(exts):
+            files.append(path)
+    return sorted(set(files))
+
+
 def _resolve_hf_file_url(repo_id: str, filename: str) -> str:
     return f"https://huggingface.co/{repo_id}/resolve/main/{filename}"
 
 
-def _run_zimage_turbo_sync(limit: Optional[int] = None):
-    target_dir = Path(__file__).parent.parent / "ComfyUI" / "models" / "loras" / "zimage_turbo"
+def _get_pack_local_dirs(pack_key: str):
+    cfg = PACK_CONFIGS.get(pack_key)
+    if not cfg:
+        raise ValueError(f"Unknown pack key: {pack_key}")
+    comfy_models_dir = Path(__file__).parent.parent / "ComfyUI" / "models"
+    lora_dir = comfy_models_dir / "loras" / cfg["folder"]
+    preview_dir = comfy_models_dir / "loras" / LORA_PREVIEW_ROOT / cfg["folder"]
+    return lora_dir, preview_dir
+
+
+def _find_local_preview_file(preview_dir: Path, lora_filename: str):
+    stem = Path(lora_filename).stem.lower()
+    if not preview_dir.exists():
+        return None
+    for ext in (".png", ".jpg", ".jpeg", ".webp"):
+        exact = preview_dir / f"{Path(lora_filename).stem}{ext}"
+        if exact.exists() and exact.stat().st_size > 1000:
+            return exact.name
+    for f in preview_dir.iterdir():
+        if not f.is_file():
+            continue
+        if f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+            continue
+        if f.stem.lower() == stem and f.stat().st_size > 1000:
+            return f.name
+    return None
+
+
+def _run_pack_sync(pack_key: str, limit: Optional[int] = None):
+    cfg = PACK_CONFIGS.get(pack_key)
+    if not cfg:
+        raise ValueError(f"Unknown pack key: {pack_key}")
+
+    target_dir, _preview_dir = _get_pack_local_dirs(pack_key)
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    with _zimage_sync_lock:
-        zimage_sync_state.update({
+    with _pack_sync_locks[pack_key]:
+        pack_sync_state[pack_key].update({
             "status": "running",
             "message": "Fetching file list...",
             "downloaded": 0,
@@ -367,13 +467,13 @@ def _run_zimage_turbo_sync(limit: Optional[int] = None):
         })
 
     try:
-        files = _list_hf_safetensors(ZIMAGE_TURBO_REPO)
+        files = _list_hf_safetensors(cfg["repo"])
         if limit is not None and limit > 0:
             files = files[:limit]
 
-        with _zimage_sync_lock:
-            zimage_sync_state["total"] = len(files)
-            zimage_sync_state["message"] = f"Syncing {len(files)} LoRAs..."
+        with _pack_sync_locks[pack_key]:
+            pack_sync_state[pack_key]["total"] = len(files)
+            pack_sync_state[pack_key]["message"] = f"Syncing {len(files)} LoRAs..."
 
         downloaded = 0
         skipped = 0
@@ -382,38 +482,41 @@ def _run_zimage_turbo_sync(limit: Optional[int] = None):
             dest = target_dir / filename
             if dest.exists() and dest.stat().st_size > 10000:
                 skipped += 1
-                with _zimage_sync_lock:
-                    zimage_sync_state["skipped"] = skipped
-                    zimage_sync_state["message"] = f"Skipping existing ({idx}/{len(files)}): {filename}"
+                with _pack_sync_locks[pack_key]:
+                    pack_sync_state[pack_key]["skipped"] = skipped
+                    pack_sync_state[pack_key]["message"] = f"Skipping existing ({idx}/{len(files)}): {filename}"
                 continue
 
-            url = _resolve_hf_file_url(ZIMAGE_TURBO_REPO, filename)
-            with _zimage_sync_lock:
-                zimage_sync_state["message"] = f"Downloading ({idx}/{len(files)}): {filename}"
+            url = _resolve_hf_file_url(cfg["repo"], filename)
+            with _pack_sync_locks[pack_key]:
+                pack_sync_state[pack_key]["message"] = f"Downloading ({idx}/{len(files)}): {filename}"
             download_lora_task(url, filename, target_dir)
             if get_download_status(filename).get("status") == "completed":
                 downloaded += 1
-                with _zimage_sync_lock:
-                    zimage_sync_state["downloaded"] = downloaded
+                with _pack_sync_locks[pack_key]:
+                    pack_sync_state[pack_key]["downloaded"] = downloaded
 
         refresh_comfy_models()
-        with _zimage_sync_lock:
-            zimage_sync_state["status"] = "completed"
-            zimage_sync_state["message"] = f"Completed. Downloaded {downloaded}, skipped {skipped}."
-            zimage_sync_state["downloaded"] = downloaded
-            zimage_sync_state["skipped"] = skipped
+        with _pack_sync_locks[pack_key]:
+            pack_sync_state[pack_key]["status"] = "completed"
+            pack_sync_state[pack_key]["message"] = f"Completed. Downloaded {downloaded}, skipped {skipped}."
+            pack_sync_state[pack_key]["downloaded"] = downloaded
+            pack_sync_state[pack_key]["skipped"] = skipped
     except Exception as e:
-        with _zimage_sync_lock:
-            zimage_sync_state["status"] = "error"
-            zimage_sync_state["message"] = str(e)
+        with _pack_sync_locks[pack_key]:
+            pack_sync_state[pack_key]["status"] = "error"
+            pack_sync_state[pack_key]["message"] = str(e)
 
 
-def start_zimage_turbo_sync(limit: Optional[int] = None):
-    """Start background sync of Z-Image Turbo celeb LoRAs from Hugging Face."""
-    with _zimage_sync_lock:
-        if zimage_sync_state.get("status") == "running":
-            return {"status": "running", "message": zimage_sync_state.get("message", "Already syncing")}
-        zimage_sync_state.update({
+def start_pack_sync(pack_key: str, limit: Optional[int] = None):
+    """Start background sync for a configured HF pack."""
+    if pack_key not in PACK_CONFIGS:
+        return {"status": "error", "message": f"Unknown pack key: {pack_key}"}
+
+    with _pack_sync_locks[pack_key]:
+        if pack_sync_state[pack_key].get("status") == "running":
+            return {"status": "running", "message": pack_sync_state[pack_key].get("message", "Already syncing")}
+        pack_sync_state[pack_key].update({
             "status": "running",
             "message": "Starting sync...",
             "downloaded": 0,
@@ -421,14 +524,35 @@ def start_zimage_turbo_sync(limit: Optional[int] = None):
             "total": 0,
         })
 
-    thread = threading.Thread(target=_run_zimage_turbo_sync, args=(limit,), daemon=True)
+    thread = threading.Thread(target=_run_pack_sync, args=(pack_key, limit), daemon=True)
     thread.start()
-    return {"status": "started", "message": "Z-Image Turbo sync started in background"}
+    return {"status": "started", "message": f"{PACK_CONFIGS[pack_key]['label']} sync started in background"}
 
 
-def get_zimage_turbo_sync_status():
-    with _zimage_sync_lock:
-        return dict(zimage_sync_state)
+def get_pack_sync_status(pack_key: str):
+    if pack_key not in PACK_CONFIGS:
+        return {"status": "error", "message": f"Unknown pack key: {pack_key}"}
+    with _pack_sync_locks[pack_key]:
+        return dict(pack_sync_state[pack_key])
+
+
+def start_pack_file_download(pack_key: str, filename: str):
+    """Start single LoRA file download for a configured pack."""
+    cfg = PACK_CONFIGS.get(pack_key)
+    if not cfg:
+        return {"success": False, "message": f"Unknown pack key: {pack_key}"}
+
+    safe_filename = Path(str(filename)).name
+    if not safe_filename.lower().endswith(".safetensors"):
+        return {"success": False, "message": "Only .safetensors files are allowed"}
+
+    known_files = _list_hf_safetensors(cfg["repo"])
+    if safe_filename not in known_files:
+        return {"success": False, "message": f"File not found in pack: {safe_filename}"}
+
+    url = _resolve_hf_file_url(cfg["repo"], safe_filename)
+    start_lora_download(url, safe_filename, lora_subfolder=cfg["folder"])
+    return {"success": True, "status": "started", "filename": safe_filename}
 
 
 def _filename_to_celebrity_label(filename: str) -> str:
@@ -438,12 +562,22 @@ def _filename_to_celebrity_label(filename: str) -> str:
     return name
 
 
-def get_zimage_turbo_catalog(max_items: int = 500):
+def get_pack_catalog(pack_key: str, max_items: int = 500):
     """
-    Returns celebrity catalog for Z-Image Turbo pack.
+    Returns LoRA catalog for a configured HF pack.
     Includes remote repo files + local installed status.
     """
-    local_dir = Path(__file__).parent.parent / "ComfyUI" / "models" / "loras" / "zimage_turbo"
+    cfg = PACK_CONFIGS.get(pack_key)
+    if not cfg:
+        return {
+            "repo": "",
+            "total": 0,
+            "installed": 0,
+            "items": [],
+            "remote_error": f"Unknown pack key: {pack_key}",
+        }
+
+    local_dir, preview_dir = _get_pack_local_dirs(pack_key)
     local_files = {}
     if local_dir.exists():
         for f in local_dir.glob("*.safetensors"):
@@ -453,7 +587,7 @@ def get_zimage_turbo_catalog(max_items: int = 500):
     remote_files = []
     remote_error = None
     try:
-        remote_files = _list_hf_safetensors(ZIMAGE_TURBO_REPO)
+        remote_files = _list_hf_safetensors(cfg["repo"])
     except Exception as e:
         remote_error = str(e)
 
@@ -461,20 +595,67 @@ def get_zimage_turbo_catalog(max_items: int = 500):
     if max_items and max_items > 0:
         source_files = source_files[:max_items]
 
+    image_files = []
+    try:
+        image_files = _list_hf_images(cfg["repo"])
+    except Exception:
+        image_files = []
+
+    preview_by_index = {}
+    for i, img_path in enumerate(image_files):
+        preview_by_index[i] = f"https://huggingface.co/{cfg['repo']}/resolve/main/{img_path}"
+
     celebs = []
-    for file_name in source_files:
+    for idx, file_name in enumerate(source_files):
+        local_preview_name = _find_local_preview_file(preview_dir, file_name)
+        local_preview_url = None
+        if local_preview_name:
+            local_preview_url = f"/api/lora/pack/{quote(pack_key)}/preview/{quote(local_preview_name)}"
+
         celebs.append({
             "name": _filename_to_celebrity_label(file_name),
             "file": file_name,
             "installed": file_name in local_files,
             "size_mb": round((local_files.get(file_name, 0) / 1024 / 1024), 1) if file_name in local_files else None,
+            "preview_url": local_preview_url or preview_by_index.get(idx),
+            "preview_local": bool(local_preview_url),
         })
 
     installed_count = sum(1 for c in celebs if c["installed"])
     return {
-        "repo": ZIMAGE_TURBO_REPO,
+        "repo": cfg["repo"],
+        "pack_key": pack_key,
+        "pack_label": cfg["label"],
         "total": len(celebs),
         "installed": installed_count,
         "items": celebs,
+        "preview_count": len(image_files),
         "remote_error": remote_error,
     }
+
+
+def get_pack_preview_file_path(pack_key: str, image_name: str):
+    cfg = PACK_CONFIGS.get(pack_key)
+    if not cfg:
+        return None
+    safe_name = Path(str(image_name)).name
+    _, preview_dir = _get_pack_local_dirs(pack_key)
+    candidate = preview_dir / safe_name
+    if candidate.exists() and candidate.is_file():
+        return candidate
+    return None
+
+
+def start_zimage_turbo_sync(limit: Optional[int] = None):
+    """Backward-compat helper for existing endpoint."""
+    return start_pack_sync("zimage_turbo", limit=limit)
+
+
+def get_zimage_turbo_sync_status():
+    """Backward-compat helper for existing endpoint."""
+    return get_pack_sync_status("zimage_turbo")
+
+
+def get_zimage_turbo_catalog(max_items: int = 500):
+    """Backward-compat helper for existing endpoint."""
+    return get_pack_catalog("zimage_turbo", max_items=max_items)

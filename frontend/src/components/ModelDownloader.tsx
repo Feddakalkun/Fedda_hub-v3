@@ -38,6 +38,8 @@ const MODEL_GROUP_LABELS: Record<string, string> = {
     'scene-builder': 'Scene Builder (WAN)',
     'ltx-i2v': 'LTX 2.3 (Image to Video)',
     'ltx-t2v': 'LTX 2.3 (Text to Video)',
+    'ltx2-i2v-sound': 'LTX 2.2 (I2V + Sound)',
+    'ltx2-lipsync': 'LTX 2.2 (Lipsync)',
 };
 
 export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: ModelDownloaderProps) => {

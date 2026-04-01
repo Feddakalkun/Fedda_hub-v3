@@ -11,7 +11,6 @@ import {
     MessageSquare,
     Images,
     Film,
-    Package,
     Download,
 } from 'lucide-react';
 import { APP_CONFIG, MODELS } from '../../config/api';
@@ -68,7 +67,6 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
                 { id: 'gallery', label: 'Gallery', icon: Images },
                 { id: 'tiktok', label: 'TikTok Studio', icon: Download },
                 { id: 'videos', label: 'Videos', icon: Film },
-                { id: 'library', label: 'LoRA Library', icon: Package },
             ] as SidebarItem[],
         },
         {

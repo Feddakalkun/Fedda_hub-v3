@@ -5,12 +5,14 @@ import { CatalogShell, CatalogCard } from '../components/layout/CatalogShell';
 import { useOllamaManager } from '../hooks/useOllamaManager';
 import { useRunPodSettings } from '../hooks/useRunPodSettings';
 import { ModelDownloader } from '../components/ModelDownloader';
+import { LoRADownloader } from '../components/LoRADownloader';
 import { IS_RUNPOD } from '../config/api';
 
 const HF_TOKEN_KEY = 'fedda_hf_token';
 
 const SETTINGS_TABS = [
     { id: 'comfyui', label: 'ComfyUI Models' },
+    { id: 'lora', label: 'LoRA Models' },
     { id: 'llm', label: 'AI Models' },
     { id: 'hf-token', label: 'HuggingFace' },
     { id: 'cloud', label: 'Cloud / RunPod' },
@@ -21,12 +23,34 @@ type SettingsTab = typeof SETTINGS_TABS[number]['id'];
 const MODEL_GROUPS = [
     { id: 'z-image', description: 'Z-Image Turbo models for fast image generation' },
     { id: 'qwen-angle', description: 'Qwen Multi-Angle models for consistent multi-view generation' },
+    { id: 'flux2klein-txt2img9b', description: 'FLUX2KLEIN base models for all FLUX2KLEIN workflows' },
+    { id: 'ltx-i2v', description: 'LTX 2.3 Image-to-Video models' },
+    { id: 'ltx-t2v', description: 'LTX 2.3 Text-to-Video models' },
+    { id: 'ltx2-i2v-sound', description: 'LTX 2.2 Image-to-Video + Sound models' },
+    { id: 'ltx2-lipsync', description: 'LTX 2.2 Lipsync models' },
     { id: 'ace-step', description: 'ACE-Step 1.5 models for music generation' },
     { id: 'lipsync', description: 'WAN + LTX models for video lipsync and scene building' },
+    { id: 'scene-builder', description: 'WAN scene-builder models' },
 ];
+
+const LORA_FAMILIES = [
+    { id: 'z-image', label: 'Z-Image' },
+    { id: 'qwen', label: 'QWEN' },
+    { id: 'flux2klein', label: 'FLUX2KLEIN' },
+    { id: 'flux1dev', label: 'FLUX.1-dev' },
+    { id: 'sd15', label: 'SD1.5' },
+    { id: 'sd15_lycoris', label: 'SD1.5 LyCORIS' },
+    { id: 'sdxl', label: 'SDXL' },
+    { id: 'ltx', label: 'LTX' },
+    { id: 'wan', label: 'WAN' },
+    { id: 'ace-step', label: 'ACE-Step' },
+] as const;
+
+type LoRAFamily = typeof LORA_FAMILIES[number]['id'];
 
 export const SettingsPage = () => {
     const [settingsTab, setSettingsTab] = useState<SettingsTab>('comfyui');
+    const [loraFamily, setLoraFamily] = useState<LoRAFamily>('z-image');
 
     const {
         installedModels,
@@ -154,6 +178,35 @@ export const SettingsPage = () => {
                             <ModelDownloader modelGroup={group.id} />
                         </CatalogCard>
                     ))}
+                </div>
+            )}
+
+            {/* AI Models Tab — RunPod uses IF_AI_tools, Local uses Ollama */}
+            {settingsTab === 'lora' && (
+                <div className="space-y-6">
+                    <p className="text-sm text-slate-400">
+                        Character LoRAs are managed by model family. Workflow-required LoRAs are downloaded automatically with their base model groups.
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 bg-[#0a0a0f] p-1 rounded-xl border border-white/10">
+                        {LORA_FAMILIES.map((f) => (
+                            <button
+                                key={f.id}
+                                onClick={() => setLoraFamily(f.id)}
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                                    loraFamily === f.id
+                                        ? 'bg-white text-black shadow-lg'
+                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                }`}
+                            >
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <CatalogCard className="p-0 overflow-hidden">
+                        <LoRADownloader family={loraFamily} />
+                    </CatalogCard>
                 </div>
             )}
 

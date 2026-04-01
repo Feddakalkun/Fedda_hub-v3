@@ -174,6 +174,109 @@ sys.exit(0 if failed == 0 else 2)
     }
 }
 
+function Download-LoraPackPreviewImages {
+    param(
+        [string]$PythonExe,
+        [string]$ComfyDir
+    )
+
+    Write-Log "`n[ComfyUI 8.6/9] Downloading LoRA celeb preview images cache..."
+    $PreviewRoot = Join-Path $ComfyDir "models\loras\_preview_packs"
+    if (-not (Test-Path $PreviewRoot)) {
+        New-Item -ItemType Directory -Path $PreviewRoot -Force | Out-Null
+    }
+
+    $PyScript = Join-Path $env:TEMP "feddaz_lora_preview_cache_sync.py"
+    $PyCode = @"
+import json
+import os
+import subprocess
+import sys
+import urllib.request
+
+packs = {
+    "zimage_turbo": "pmczip/Z-Image-Turbo_Models",
+    "flux2klein": "pmczip/FLUX.2-klein-9B_Models",
+    "flux1dev": "pmczip/FLUX.1-dev_Models",
+    "sd15": "pmczip/SD1.5_LoRa_Models",
+    "sd15_lycoris": "pmczip/SD1.5_LyCORIS_Models",
+    "sdxl": "pmczip/SDXL_Models",
+}
+
+preview_root = r"$PreviewRoot"
+os.makedirs(preview_root, exist_ok=True)
+
+image_exts = (".png", ".jpg", ".jpeg", ".webp")
+total_downloaded = 0
+total_skipped = 0
+total_failed = 0
+
+for pack_key, repo in packs.items():
+    pack_dir = os.path.join(preview_root, pack_key)
+    os.makedirs(pack_dir, exist_ok=True)
+    api = f"https://huggingface.co/api/models/{repo}/tree/main?recursive=1"
+    print(f"[Preview Cache] {pack_key}: Fetching image list...")
+    try:
+        with urllib.request.urlopen(api, timeout=60) as resp:
+            items = json.loads(resp.read().decode("utf-8", errors="ignore"))
+    except Exception as e:
+        print(f"[Preview Cache] {pack_key}: Failed to fetch list: {e}")
+        total_failed += 1
+        continue
+
+    image_paths = []
+    for item in items:
+        p = str(item.get("path", "")).strip()
+        if p.lower().endswith(image_exts):
+            image_paths.append(p)
+    image_paths = sorted(set(image_paths))
+    print(f"[Preview Cache] {pack_key}: {len(image_paths)} preview images found")
+
+    for i, rel_path in enumerate(image_paths, start=1):
+        file_name = os.path.basename(rel_path)
+        out = os.path.join(pack_dir, file_name)
+        if os.path.exists(out) and os.path.getsize(out) > 1024:
+            total_skipped += 1
+            continue
+
+        url = f"https://huggingface.co/{repo}/resolve/main/{rel_path}"
+        print(f"[Preview Cache] {pack_key} [{i}/{len(image_paths)}]: {file_name}")
+        cmd = ["curl.exe", "-L", "--retry", "3", "--retry-delay", "2", "-o", out, url]
+        result = subprocess.run(cmd)
+        if result.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 1024:
+            total_downloaded += 1
+        else:
+            total_failed += 1
+            try:
+                if os.path.exists(out):
+                    os.remove(out)
+            except Exception:
+                pass
+
+print(f"[Preview Cache] Done. Downloaded={total_downloaded}, Skipped={total_skipped}, Failed={total_failed}")
+sys.exit(0 if total_failed == 0 else 2)
+"@
+    Set-Content -Path $PyScript -Value $PyCode -Encoding UTF8
+
+    try {
+        Start-Process -FilePath $PythonExe -ArgumentList "$PyScript" -NoNewWindow -Wait
+        if ($LASTEXITCODE -eq 0) {
+            Write-Log "LoRA preview image cache download completed."
+        }
+        else {
+            Write-Log "WARNING: LoRA preview cache completed with partial failures (code $LASTEXITCODE)."
+        }
+    }
+    catch {
+        Write-Log "WARNING: LoRA preview cache download failed: $_"
+    }
+    finally {
+        if (Test-Path $PyScript) {
+            Remove-Item $PyScript -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 Write-Log "========================================="
 Write-Log " FEDDA - Full Portable Installation"
 Write-Log "========================================="
@@ -712,6 +815,7 @@ Pause-Step
 
 # 8.6 Z-Image Turbo celeb LoRA pack is now UI-only (no auto-download in installer)
 Write-Log "Skipping automatic Z-Image Turbo celeb pack download (available in UI on demand)."
+Download-LoraPackPreviewImages -PythonExe $PortablePythonExe -ComfyDir $ComfyDir
 Pause-Step
 
 # 9. Configure ComfyUI-Manager Security (Weak Mode)

@@ -42,10 +42,34 @@
     "note": "IPAdapterModelLoader and IPAdapterAdvanced nodes used in IPAdapter workflows"
   },
   {
+    "name": "ComfyUI_InstantID",
+    "url": "https://github.com/cubiq/ComfyUI_InstantID.git",
+    "folder": "ComfyUI_InstantID",
+    "note": "InstantIDAnalysis, InstantIDModelLoader, ApplyInstantID nodes for identity-preserving workflows (requires insightface and onnxruntime)"
+  },
+  {
+    "name": "ComfyUI-Lotus",
+    "url": "https://github.com/kijai/ComfyUI-Lotus.git",
+    "folder": "ComfyUI-Lotus",
+    "note": "LotusSampler, LoadLotusModel — Lotus depth/normal prediction workflows"
+  },
+  {
+    "name": "comfyui_controlnet_aux",
+    "url": "https://github.com/Fannovel16/comfyui_controlnet_aux.git",
+    "folder": "comfyui_controlnet_aux",
+    "note": "CannyEdgePreprocessor, DWPreprocessor and other ControlNet preprocessors"
+  },
+  {
     "name": "ComfyUI-Impact-Subpack",
-    "url": "https://github.com/comfyorg/comfyui-impact-subpack.git",
+    "url": "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git",
     "folder": "ComfyUI-Impact-Subpack",
     "note": "MaskFix+, DetailerForEach — needed for HQ detailer workflow"
+  },
+  {
+    "name": "ComfyUI-AutoCropFaces",
+    "url": "https://github.com/liusida/ComfyUI-AutoCropFaces.git",
+    "folder": "ComfyUI-AutoCropFaces",
+    "note": "AutoCropFaces node for automatic face crop workflows"
   },
 
   {

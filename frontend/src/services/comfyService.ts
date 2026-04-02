@@ -12,6 +12,7 @@ class ComfyUIService {
     private reconnectAttempts: number = 0;
     private objectInfoCache: Record<string, any> | null = null;
     private objectInfoCacheAt = 0;
+    private runpodDirectDisabled = false;
     private static readonly COMPUTE_MODE_KEY = 'fedda_compute_mode';
     private static readonly RUNPOD_URL_KEY = 'runpodUrl';
     private static readonly RUNPOD_TOKEN_KEY = 'runpodToken';
@@ -63,17 +64,36 @@ class ComfyUIService {
         return trimmed.replace(/\/prompt\/?$/i, '').replace(/\/+$/i, '');
     }
 
+    private isLocalhostUi(): boolean {
+        try {
+            const host = window.location.hostname;
+            return host === 'localhost' || host === '127.0.0.1';
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Direct browser -> RunPod calls are often blocked by CORS.
+     * When UI is hosted on localhost, prefer local proxy route.
+     */
+    private shouldUseDirectRunPod(): boolean {
+        if (this.getComputeMode() !== 'runpod_pod') return false;
+        if (this.runpodDirectDisabled) return false;
+        return !this.isLocalhostUi();
+    }
+
     private getComfyBaseUrl(): string {
-        if (this.getComputeMode() === 'runpod_pod') {
+        if (this.shouldUseDirectRunPod()) {
             const runpodUrl = localStorage.getItem(ComfyUIService.RUNPOD_URL_KEY) || '';
             const base = this.deriveRunPodBase(runpodUrl);
             if (base) return base;
         }
-        return COMFY_API.BASE_URL;
+        return '/comfy';
     }
 
     private getComfyWsUrl(): string {
-        if (this.getComputeMode() === 'runpod_pod') {
+        if (this.shouldUseDirectRunPod()) {
             const runpodUrl = localStorage.getItem(ComfyUIService.RUNPOD_URL_KEY) || '';
             const base = this.deriveRunPodBase(runpodUrl);
             if (base) {
@@ -81,12 +101,12 @@ class ComfyUIService {
                 return base.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:') + '/ws';
             }
         }
-        return COMFY_API.WS_URL;
+        return '/comfy/ws';
     }
 
     private getAuthHeaders(): Record<string, string> {
         const headers: Record<string, string> = {};
-        if (this.getComputeMode() === 'runpod_pod') {
+        if (this.shouldUseDirectRunPod()) {
             const token = (localStorage.getItem(ComfyUIService.RUNPOD_TOKEN_KEY) || '').trim();
             if (token) headers.Authorization = `Bearer ${token}`;
         }

@@ -20,8 +20,7 @@ if "%1"==":svc_ollama" (
     exit
 )
 if "%1"==":svc_comfy" (
-    if not exist "%BASE_DIR%\logs" mkdir "%BASE_DIR%\logs"
-    call :launch_comfy > "%BASE_DIR%\logs\comfyui.log" 2>&1
+    call :launch_comfy
     exit
 )
 if "%1"==":svc_backend" (
@@ -70,14 +69,15 @@ if "%MODE%"=="portable" (
 
 :: 3. Start ComfyUI
 echo [3/5] Starting ComfyUI (Port 8199)...
-start "" /B "%~f0" :svc_comfy
-timeout /t 3 /nobreak >nul
+start "FEDDA ComfyUI Console" cmd /k ""%~f0" :svc_comfy"
 
 :: 4. Start FastAPI Backend
 echo [4/5] Starting Backend (Port 8000)...
 start "" /B "%~f0" :svc_backend
 echo     Waiting for Backend API...
-timeout /t 5 /nobreak >nul
+call :wait_for_port 8000 90 "Backend"
+echo     Waiting for ComfyUI API...
+call :wait_for_port 8199 120 "ComfyUI"
 
 :: 5. Start Frontend (runs in this window)
 echo [5/5] Starting FEDDA UI (Port 5173)...
@@ -96,6 +96,32 @@ if not exist "node_modules" (
 call npm run dev
 pause
 exit /b
+
+:: ============================================================================
+:: SUBROUTINE: WAIT FOR TCP PORT LISTENING
+:: ============================================================================
+:wait_for_port
+setlocal EnableDelayedExpansion
+set "WAIT_PORT=%~1"
+set "WAIT_MAX=%~2"
+set "WAIT_NAME=%~3"
+set /a WAIT_ELAPSED=0
+
+:wait_loop
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr /R /C:":%WAIT_PORT% .*LISTENING"') do (
+    endlocal
+    exit /b 0
+)
+
+if !WAIT_ELAPSED! GEQ !WAIT_MAX! (
+    echo     [WARN] %WAIT_NAME% did not become ready within %WAIT_MAX%s. Continuing...
+    endlocal
+    exit /b 1
+)
+
+timeout /t 1 /nobreak >nul
+set /a WAIT_ELAPSED+=1
+goto :wait_loop
 
 :: ============================================================================
 :: SUBROUTINE: DETECT ENVIRONMENT (Portable vs Lite)

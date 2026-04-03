@@ -102,7 +102,6 @@ const parseHash = (): { activeTab?: string; activeSubTab?: string | null } => {
 const readInitialUiState = (): UiStateSnapshot => {
   let storedTab = 'chat';
   let storedSubTab: string | null = 'image-generate';
-  let landingDismissed = false;
 
   // Read tab/subtab from localStorage (persists across sessions)
   try {
@@ -124,14 +123,6 @@ const readInitialUiState = (): UiStateSnapshot => {
     // ignore broken storage payloads
   }
 
-  // Read landingDismissed from sessionStorage (only persists on refresh, not new tabs)
-  try {
-    const sessionRaw = sessionStorage.getItem('fedda_landing_dismissed');
-    landingDismissed = sessionRaw === 'true';
-  } catch {
-    // ignore sessionStorage errors
-  }
-
   const hashState = parseHash();
   const activeTab = hashState.activeTab || storedTab;
   const hashSub = hashState.activeSubTab;
@@ -140,7 +131,8 @@ const readInitialUiState = (): UiStateSnapshot => {
       ? normalizeSubTab(activeTab, hashSub)
       : normalizeSubTab(activeTab, storedSubTab);
 
-  const showLanding = !(landingDismissed || Boolean(hashState.activeTab));
+  // Always show landing sequence on startup unless user opened a deep-link hash directly.
+  const showLanding = !Boolean(hashState.activeTab);
 
   return {
     showLanding,
@@ -169,14 +161,7 @@ function App() {
     } catch {
       // ignore localStorage write errors
     }
-
-    // Save landing dismissed to sessionStorage (only persists on refresh, not new tabs)
-    try {
-      sessionStorage.setItem('fedda_landing_dismissed', String(!showLanding));
-    } catch {
-      // ignore sessionStorage write errors
-    }
-  }, [showLanding, activeTab, activeSubTab]);
+  }, [activeTab, activeSubTab]);
 
   useEffect(() => {
     if (showLanding) return;

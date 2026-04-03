@@ -51,9 +51,22 @@ export const PromptInput = ({ prompt, setPrompt, negativePrompt, setNegativeProm
         setIsDescribing(true);
         try {
             const models = await ollamaService.getModels();
-            const visionModel = models.find(m =>
-                m.name.toLowerCase().includes('vision') || m.name.toLowerCase().includes('llava') || m.name.toLowerCase().includes('joycaption')
-            );
+            const isVisionModel = (name: string) => {
+                const n = name.toLowerCase();
+                return (
+                    n.includes('vision') ||
+                    n.includes('llava') ||
+                    n.includes('joycaption') ||
+                    n.includes('bakllava') ||
+                    n.includes('moondream') ||
+                    n.includes('minicpm-v') ||
+                    n.includes('qwen2.5vl') ||
+                    n.includes('qwen2.5-vl') ||
+                    n.includes('qwen-vl') ||
+                    (n.includes('qwen') && n.includes('vl'))
+                );
+            };
+            const visionModel = models.find(m => isVisionModel(m.name));
             if (!visionModel) { toast('No Ollama VISION model found! Download one in Settings.', 'error'); setIsDescribing(false); return; }
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -62,6 +75,7 @@ export const PromptInput = ({ prompt, setPrompt, negativePrompt, setNegativeProm
                 try {
                     const description = await assistantService.describeImage(visionModel.name, base64);
                     setPrompt(description);
+                    toast('Image captured to prompt', 'success');
                 } catch { toast('Failed to get description from Ollama.', 'error'); }
                 finally { setIsDescribing(false); }
             };

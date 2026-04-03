@@ -27,20 +27,6 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
                 let backendAlive = false;
                 let detail = 'Initializing services...';
 
-                let nodePhase = '';
-                let bgTail: string[] = [];
-                try {
-                    const nodeRes = await fetch('/api/system/node-install-status', { cache: 'no-store' });
-                    backendAlive = nodeRes.ok;
-                    if (nodeRes.ok) {
-                        const nodeData = await nodeRes.json();
-                        nodePhase = nodeData?.phase || '';
-                        bgTail = Array.isArray(nodeData?.bg_log_tail) ? nodeData.bg_log_tail : [];
-                    }
-                } catch {
-                    backendAlive = false;
-                }
-
                 let comfyAlive = false;
                 try {
                     const comfyRes = await fetch('/comfy/system_stats', { cache: 'no-store' });
@@ -48,17 +34,12 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
                 } catch {
                     comfyAlive = false;
                 }
+                backendAlive = comfyAlive;
 
                 if (!backendAlive) {
                     detail = 'Starting backend API service...';
                 } else if (!comfyAlive) {
-                    if (nodePhase === 'core_ready_full_installing') {
-                        detail = 'ComfyUI is starting and installing core nodes...';
-                    } else if (bgTail.length > 0) {
-                        detail = bgTail[bgTail.length - 1];
-                    } else {
-                        detail = 'ComfyUI startup in progress...';
-                    }
+                    detail = 'ComfyUI startup in progress...';
                 } else {
                     detail = 'ComfyUI is online. System is ready.';
                 }

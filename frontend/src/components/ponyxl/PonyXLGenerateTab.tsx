@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Sparkles, Loader2 } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { ChevronRight } from 'lucide-react';
 import { useComfyExecution } from '../../contexts/ComfyExecutionContext';
 import { useToast } from '../ui/Toast';
 import { comfyService } from '../../services/comfyService';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { LoraStack } from '../image/LoraStack';
 import type { SelectedLora } from '../image/LoraStack';
-import { ollamaService } from '../../services/ollamaService';
-import { assistantService } from '../../services/assistantService';
+import { PromptInput } from '../image/PromptInput';
 
 interface PonyXLGenerateTabProps {
     isGenerating: boolean;
@@ -47,34 +45,10 @@ export const PonyXLGenerateTab = ({ isGenerating, setIsGenerating }: PonyXLGener
     const [selectedLoras, setSelectedLoras] = usePersistentState<SelectedLora[]>('ponyxl_generate_loras', []);
     const [showAdvanced, setShowAdvanced] = usePersistentState('ponyxl_generate_show_advanced', false);
     const [availableLoras, setAvailableLoras] = useState<string[]>([]);
-    const [isEnhancing, setIsEnhancing] = useState(false);
 
     useEffect(() => {
         comfyService.getLoras().then(setAvailableLoras).catch(() => {});
     }, []);
-
-    const enhancePrompt = async () => {
-        if (!prompt.trim() || isEnhancing) return;
-        setIsEnhancing(true);
-        try {
-            const models = await ollamaService.getModels();
-            const model = models.find(m => m.name.includes('qwen') || m.name.includes('goonsai'))?.name || models[0]?.name;
-            if (!model) { toast('No Ollama model available', 'error'); return; }
-            const characterNames = selectedLoras
-                .map(l => l.name.split(/[\\/]/).pop()?.replace(/\.(safetensors|pt|ckpt)$/i, '') || '')
-                .filter(Boolean);
-            const contextPrefix = characterNames.length > 0
-                ? `[Character LoRA active: ${characterNames.join(', ')}. Preserve this character's appearance. Write in PonyXL prompt style (score_9, score_8_up tags).] `
-                : '[Write in PonyXL prompt style (score_9, score_8_up tags).] ';
-            const enhanced = await assistantService.enhancePrompt(model, contextPrefix + prompt);
-            if (enhanced) setPrompt(enhanced);
-            await ollamaService.unloadModel(model);
-        } catch {
-            toast('Failed to enhance prompt', 'error');
-        } finally {
-            setIsEnhancing(false);
-        }
-    };
 
     const handleGenerate = async () => {
         if (!prompt.trim()) return;
@@ -135,80 +109,16 @@ export const PonyXLGenerateTab = ({ isGenerating, setIsGenerating }: PonyXLGener
 
     return (
         <div className="space-y-6">
-            {/* Prompt */}
-            <div className="bg-[#121218] border border-white/5 rounded-2xl p-6 shadow-xl">
-                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Prompt</label>
-                <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleGenerate(); } }}
-                    className="w-full h-36 bg-[#0a0a0f] border border-white/10 rounded-xl p-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
-                    placeholder="score_9, score_8_up, 1girl, ..."
-                />
-                <div className="flex items-center justify-end mt-2">
-                    <button
-                        onClick={enhancePrompt}
-                        disabled={isEnhancing || !prompt.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-black hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                    >
-                        {isEnhancing ? <><Loader2 className="w-3 h-3 animate-spin" /> Enhancing...</> : <><Sparkles className="w-3 h-3" /> Enhance Prompt</>}
-                    </button>
-                </div>
-
-                <div className="mt-4">
-                    <Button
-                        variant="primary"
-                        size="lg"
-                        className="w-full bg-white hover:bg-slate-200 text-black border-none shadow-lg rounded-xl font-bold tracking-wide"
-                        isLoading={isGenerating}
-                        onClick={handleGenerate}
-                        disabled={!prompt.trim()}
-                    >
-                        {isGenerating ? 'Generating...' : 'Generate'}
-                    </Button>
-                </div>
-            </div>
-
-            {/* Checkpoint selector */}
-            <div className="bg-[#121218] border border-white/5 rounded-2xl p-4">
-                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Model</label>
-                <div className="space-y-1.5">
-                    {CHECKPOINTS.map(ckpt => (
-                        <button
-                            key={ckpt}
-                            onClick={() => setCheckpoint(ckpt)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-mono transition-all ${
-                                checkpoint === ckpt
-                                    ? 'bg-white text-black font-bold'
-                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
-                            }`}
-                        >
-                            {ckpt.replace('.safetensors', '')}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Aspect ratio */}
-            <div className="bg-[#121218] border border-white/5 rounded-2xl p-4">
-                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Aspect Ratio</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                    {ASPECT_RATIOS.map((ar, idx) => (
-                        <button
-                            key={ar.ratio}
-                            onClick={() => setAspectIdx(idx)}
-                            className={`px-2 py-2 rounded-lg text-xs transition-all ${
-                                aspectIdx === idx
-                                    ? 'bg-white text-black font-medium'
-                                    : 'bg-white/5 text-slate-500 hover:bg-white/10 hover:text-white border border-white/5'
-                            }`}
-                        >
-                            <div className="font-mono text-[10px]">{ar.ratio}</div>
-                            <div className={`text-[8px] mt-0.5 ${aspectIdx === idx ? 'text-black/50' : 'text-slate-600'}`}>{ar.label.split(' ')[0]}</div>
-                        </button>
-                    ))}
-                </div>
-            </div>
+            <PromptInput
+                prompt={prompt}
+                setPrompt={setPrompt}
+                negativePrompt={negativePrompt}
+                setNegativePrompt={setNegativePrompt}
+                isGenerating={isGenerating}
+                onGenerate={handleGenerate}
+                showNegative={false}
+                loraNames={selectedLoras.map((l) => l.name)}
+            />
 
             {/* Advanced */}
             <div className="bg-[#121218] border border-white/5 rounded-2xl p-6 shadow-xl">
@@ -219,6 +129,45 @@ export const PonyXLGenerateTab = ({ isGenerating, setIsGenerating }: PonyXLGener
 
                 {showAdvanced && (
                     <div className="mt-4 space-y-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Model</label>
+                            <div className="space-y-1.5">
+                                {CHECKPOINTS.map(ckpt => (
+                                    <button
+                                        key={ckpt}
+                                        onClick={() => setCheckpoint(ckpt)}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-mono transition-all ${
+                                            checkpoint === ckpt
+                                                ? 'bg-white text-black font-bold'
+                                                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        {ckpt.replace('.safetensors', '')}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Aspect Ratio</label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {ASPECT_RATIOS.map((ar, idx) => (
+                                    <button
+                                        key={ar.ratio}
+                                        onClick={() => setAspectIdx(idx)}
+                                        className={`px-2 py-2 rounded-lg text-xs transition-all ${
+                                            aspectIdx === idx
+                                                ? 'bg-white text-black font-medium'
+                                                : 'bg-white/5 text-slate-500 hover:bg-white/10 hover:text-white border border-white/5'
+                                        }`}
+                                    >
+                                        <div className="font-mono text-[10px]">{ar.ratio}</div>
+                                        <div className={`text-[8px] mt-0.5 ${aspectIdx === idx ? 'text-black/50' : 'text-slate-600'}`}>{ar.label.split(' ')[0]}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <LoraStack selectedLoras={selectedLoras} setSelectedLoras={setSelectedLoras} availableLoras={availableLoras} />
 
                         <div>

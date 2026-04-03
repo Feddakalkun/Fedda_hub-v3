@@ -72,6 +72,7 @@ export const TopSystemStrip = () => {
 
     const comfyOnline = comfy.isConnected;
     const ollamaOnline = IS_RUNPOD ? true : ollama.isConnected;
+    const comfyLabel = comfy.isLoading ? 'Checking ComfyUI' : (comfyOnline ? 'ComfyUI Online' : 'ComfyUI Starting');
 
     return (
         <div className="hidden xl:flex items-center gap-2">
@@ -103,7 +104,7 @@ export const TopSystemStrip = () => {
                 comfyOnline ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-400'
             }`}>
                 <Activity className="w-3.5 h-3.5" />
-                {comfyOnline ? 'ComfyUI Online' : 'ComfyUI Starting'}
+                {comfyLabel}
             </div>
 
             <div className={`h-9 px-3 rounded-lg border text-xs font-medium flex items-center gap-1.5 ${

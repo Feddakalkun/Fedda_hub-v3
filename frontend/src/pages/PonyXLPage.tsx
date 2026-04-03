@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { WorkbenchShell } from '../components/layout/WorkbenchShell';
 import { ImageGallery } from '../components/image/ImageGallery';
 import { PonyXLGenerateTab } from '../components/ponyxl/PonyXLGenerateTab';
+import { ModelDownloader } from '../components/ModelDownloader';
 
 interface PonyXLPageProps {
     modelId: string;
@@ -27,6 +28,7 @@ export const PonyXLPage = ({ modelId }: PonyXLPageProps) => {
             collapseKey="ponyxl_preview_collapsed"
             leftPane={
                 <div className="px-4 mt-4">
+                    <ModelDownloader modelGroup="ponyxl-generate" />
                     <PonyXLGenerateTab isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
                 </div>
             }

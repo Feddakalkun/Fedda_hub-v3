@@ -9,6 +9,7 @@ import { usePersistentState } from '../../hooks/usePersistentState';
 
 type PresetTier = 'fast' | 'balanced' | 'quality';
 type ModelBackendType = 'safetensors' | 'gguf';
+type LtxAddonLora = 'none' | 'motion-track' | 'union-control';
 
 const PRESETS: Record<PresetTier, { label: string; description: string; steps: number; cfg: number; fps: number }> = {
     fast: { label: 'Fast', description: 'Quick iterations', steps: 12, cfg: 3.8, fps: 16 },
@@ -24,6 +25,21 @@ const RESOLUTIONS = [
     { label: '512x512', w: 512, h: 512, desc: 'Square' },
     { label: '320x576', w: 320, h: 576, desc: 'Portrait 9:16' },
 ];
+
+const LTX_ADDON_LORA_MAP: Record<Exclude<LtxAddonLora, 'none'>, { label: string; path: string; hint: string }> = {
+    'motion-track': {
+        label: 'IC-LoRA Motion Track',
+        path: 'ltx\\ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors',
+        hint: 'Better object/body trajectory adherence.',
+    },
+    'union-control': {
+        label: 'IC-LoRA Union Control',
+        path: 'ltx\\ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors',
+        hint: 'Combines multiple control signals with stronger coherence.',
+    },
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export const LtxT2vTab = () => {
     const { queueWorkflow } = useComfyExecution();
@@ -41,6 +57,10 @@ export const LtxT2vTab = () => {
     const [showAdvanced, setShowAdvanced] = usePersistentState('ltx_t2v_show_advanced', false);
     const [safeModeCpuLoader, setSafeModeCpuLoader] = usePersistentState('ltx_t2v_safe_mode_cpu_loader', false);
     const [modelBackend, setModelBackend] = usePersistentState<ModelBackendType>('ltx_t2v_model_backend', 'safetensors');
+    const [distilledStrengthPrimary, setDistilledStrengthPrimary] = usePersistentState('ltx_t2v_distilled_strength_primary', 0.5);
+    const [distilledStrengthSecondary, setDistilledStrengthSecondary] = usePersistentState('ltx_t2v_distilled_strength_secondary', 0.2);
+    const [addonLora, setAddonLora] = usePersistentState<LtxAddonLora>('ltx_t2v_addon_lora', 'none');
+    const [addonLoraStrength, setAddonLoraStrength] = usePersistentState('ltx_t2v_addon_lora_strength', 0.2);
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
@@ -145,6 +165,25 @@ export const LtxT2vTab = () => {
 
             // Node 4966: LTXVScheduler (steps)
             if (workflow['4966']) workflow['4966'].inputs.steps = steps;
+
+            // Distilled LoRA strengths
+            if (workflow['4922']) workflow['4922'].inputs.strength_model = clamp(distilledStrengthPrimary, 0, 1.5);
+            if (workflow['4968']) workflow['4968'].inputs.strength_model = clamp(distilledStrengthSecondary, 0, 1.5);
+
+            // Optional IC-LoRA add-on via secondary loader slot.
+            if (addonLora !== 'none') {
+                const loraOptions = await comfyService.getNodeInputOptions('LoraLoaderModelOnly', 'lora_name');
+                const selected = LTX_ADDON_LORA_MAP[addonLora];
+                const hasSelected = loraOptions.includes(selected.path);
+                if (hasSelected) {
+                    if (workflow['4968']) {
+                        workflow['4968'].inputs.lora_name = selected.path;
+                        workflow['4968'].inputs.strength_model = clamp(addonLoraStrength, 0, 1.5);
+                    }
+                } else {
+                    toast(`Selected add-on "${selected.label}" is not installed. Download LTX 2.3 IC-LoRA pack in Settings first.`, 'error');
+                }
+            }
 
             const runTag = Date.now().toString(36);
 
@@ -308,6 +347,61 @@ export const LtxT2vTab = () => {
                                 onChange={(e) => setCfg(parseFloat(e.target.value))}
                                 className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white"
                             />
+                        </div>
+                        <div>
+                            <div className="border border-white/10 rounded-lg p-3 bg-black/30 space-y-2">
+                                <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">LoRA Stack Tuning</div>
+                                <div>
+                                    <div className="flex justify-between text-xs text-slate-400 mb-1">
+                                        <span>Distilled LoRA Strength (Primary)</span>
+                                        <span className="text-white font-mono">{distilledStrengthPrimary.toFixed(2)}</span>
+                                    </div>
+                                    <input
+                                        type="range" min="0" max="1.5" step="0.05" value={distilledStrengthPrimary}
+                                        onChange={(e) => setDistilledStrengthPrimary(parseFloat(e.target.value))}
+                                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-xs text-slate-400 mb-1">
+                                        <span>Distilled LoRA Strength (Secondary)</span>
+                                        <span className="text-white font-mono">{distilledStrengthSecondary.toFixed(2)}</span>
+                                    </div>
+                                    <input
+                                        type="range" min="0" max="1.5" step="0.05" value={distilledStrengthSecondary}
+                                        onChange={(e) => setDistilledStrengthSecondary(parseFloat(e.target.value))}
+                                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-slate-400 mb-1">IC-LoRA Add-on</label>
+                                    <select
+                                        value={addonLora}
+                                        onChange={(e) => setAddonLora(e.target.value as LtxAddonLora)}
+                                        className="w-full bg-black border border-white/5 rounded-lg p-2 text-xs text-slate-300 focus:outline-none focus:border-white/20"
+                                    >
+                                        <option value="none">None</option>
+                                        <option value="motion-track">Motion Track</option>
+                                        <option value="union-control">Union Control</option>
+                                    </select>
+                                    {addonLora !== 'none' && (
+                                        <div className="text-[10px] text-slate-500 mt-1">{LTX_ADDON_LORA_MAP[addonLora].hint}</div>
+                                    )}
+                                </div>
+                                {addonLora !== 'none' && (
+                                    <div>
+                                        <div className="flex justify-between text-xs text-slate-400 mb-1">
+                                            <span>IC-LoRA Add-on Strength</span>
+                                            <span className="text-white font-mono">{addonLoraStrength.toFixed(2)}</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="1.5" step="0.05" value={addonLoraStrength}
+                                            onChange={(e) => setAddonLoraStrength(parseFloat(e.target.value))}
+                                            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs text-slate-400 mb-1">Seed (-1 = random)</label>

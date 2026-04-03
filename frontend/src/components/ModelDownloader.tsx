@@ -40,6 +40,9 @@ const MODEL_GROUP_LABELS: Record<string, string> = {
     'ltx-t2v': 'LTX 2.3 (Text to Video)',
     'ltx2-i2v-sound': 'LTX 2.2 (I2V + Sound)',
     'ltx2-lipsync': 'LTX 2.2 (Lipsync)',
+    'ltx23-ic-lora-pack': 'LTX 2.3 IC-LoRA Pack',
+    'ltx2-cinematic-lora-pack': 'LTX 2.2 Cinematic LoRA Pack',
+    'ponyxl-generate': 'PonyXL',
 };
 
 export const ModelDownloader = ({ modelGroup = 'z-image', onModelsReady }: ModelDownloaderProps) => {

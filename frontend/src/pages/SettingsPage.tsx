@@ -28,9 +28,12 @@ const MODEL_GROUPS = [
     { id: 'ltx-t2v', description: 'LTX 2.3 Text-to-Video models' },
     { id: 'ltx2-i2v-sound', description: 'LTX 2.2 Image-to-Video + Sound models' },
     { id: 'ltx2-lipsync', description: 'LTX 2.2 Lipsync models' },
+    { id: 'ltx23-ic-lora-pack', description: 'LTX 2.3 IC-LoRA pack (Motion Track + Union Control)' },
+    { id: 'ltx2-cinematic-lora-pack', description: 'LTX 2.2 cinematic add-on LoRAs (Detailer + HeroCam)' },
     { id: 'ace-step', description: 'ACE-Step 1.5 models for music generation' },
     { id: 'lipsync', description: 'WAN + LTX models for video lipsync and scene building' },
     { id: 'scene-builder', description: 'WAN scene-builder models' },
+    { id: 'ponyxl-generate', description: 'PonyXL checkpoints for realistic and anime generation' },
 ];
 
 const LORA_FAMILIES = [

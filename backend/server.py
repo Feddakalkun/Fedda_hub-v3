@@ -1363,6 +1363,53 @@ REQUIRED_MODELS = {
     ]
 }
 
+# PonyXL checkpoints + face enhancement models
+REQUIRED_MODELS["ponyxl"] = [
+    {
+        "id": "cyber-realistic-pony",
+        "name": "CyberRealisticPony_V14.1_FP16.safetensors",
+        "url": "https://huggingface.co/cyberdelia/CyberRealisticPony/resolve/main/CyberRealisticPony_V14.1_FP16.safetensors",
+        "path": "checkpoints/CyberRealisticPony_V14.1_FP16.safetensors",
+        "size_gb": 6.46
+    },
+    {
+        "id": "blendermix",
+        "name": "blendermix_v20.safetensors",
+        "url": "https://huggingface.co/GraydientPlatformAPI/blendermix2/resolve/main/unet/diffusion_pytorch_model.safetensors",
+        "path": "checkpoints/blendermix_v20.safetensors",
+        "size_gb": 4.78
+    },
+    {
+        "id": "mistoon-anime",
+        "name": "mistoonAnime_ponyAlpha.safetensors",
+        "url": "https://huggingface.co/comfyuistudio/AnimeNsfw/resolve/main/mistoonAnime_ponyAlpha.safetensors",
+        "path": "checkpoints/mistoonAnime_ponyAlpha.safetensors",
+        "size_gb": 6.46
+    },
+    {
+        "id": "realvisxl",
+        "name": "realvisxlV40_v40LightningBakedvae.safetensors",
+        "url": "https://huggingface.co/alexgenovese/reica_models/resolve/021e192bd744c48a85f8ae1832662e77beb9aac7/realvisxlV40_v40LightningBakedvae.safetensors",
+        "path": "checkpoints/realvisxlV40_v40LightningBakedvae.safetensors",
+        "size_gb": 6.46
+    },
+    {
+        "id": "face-detect",
+        "name": "face_yolov8m.pt",
+        "url": "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt",
+        "path": "ultralytics/bbox/face_yolov8m.pt",
+        "size_gb": 0.048
+    },
+    {
+        "id": "sam",
+        "name": "sam_vit_b_01ec64.pth",
+        "url": "https://huggingface.co/scenario-labs/sam_vit/resolve/main/sam_vit_b_01ec64.pth",
+        "path": "sams/sam_vit_b_01ec64.pth",
+        "size_gb": 0.349
+    }
+]
+REQUIRED_MODELS["ponyxl-generate"] = REQUIRED_MODELS["ponyxl"]
+
 # Scene Builder uses the same WAN models as Lipsync
 REQUIRED_MODELS["scene-builder"] = REQUIRED_MODELS["lipsync"]
 # Image mode aliases (Z-Image submodes share the same model set)
@@ -1501,6 +1548,42 @@ REQUIRED_MODELS["ltx2-lipsync"] = REQUIRED_MODELS["ltx2-i2v-sound"] + [
         "url": "https://huggingface.co/ank-ai/MelBandRoformer/resolve/main/MelBandRoformer_fp16.safetensors",
         "path": "audio_separation/MelBandRoformer_fp16.safetensors",
         "size_gb": 0.14
+    },
+]
+
+# ─── LTX Optional Add-on LoRA packs (downloadable from Settings) ───────────
+# These are optional capability packs and are NOT required for baseline workflows.
+REQUIRED_MODELS["ltx23-ic-lora-pack"] = [
+    {
+        "id": "ltx23-ic-motion-track-control",
+        "name": "ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control/resolve/main/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+        "path": "loras/ltx/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+        "size_gb": 2.16
+    },
+    {
+        "id": "ltx23-ic-union-control",
+        "name": "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control/resolve/main/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+        "path": "loras/ltx/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+        "size_gb": 2.16
+    },
+]
+
+REQUIRED_MODELS["ltx2-cinematic-lora-pack"] = [
+    {
+        "id": "ltx2-ic-lora-detailer-pack",
+        "name": "ltx-2-19b-ic-lora-detailer.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Detailer/resolve/main/ltx-2-19b-ic-lora-detailer.safetensors",
+        "path": "loras/ltx-2-19b-ic-lora-detailer.safetensors",
+        "size_gb": 2.44
+    },
+    {
+        "id": "ltx2-herocam-lora-pack",
+        "name": "HeroCam_LTX2_bucket113_step_02000.safetensors",
+        "url": "https://huggingface.co/Nebsh/LTX2_Herocam_Lora/resolve/main/HeroCam_LTX2_bucket113_step_02000.safetensors",
+        "path": "loras/HeroCam_LTX2_bucket113_step_02000.safetensors",
+        "size_gb": 0.31
     },
 ]
 

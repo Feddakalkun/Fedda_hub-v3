@@ -10,16 +10,9 @@ import { usePersistentState } from '../../hooks/usePersistentState';
 
 type PresetTier = 'fast' | 'balanced' | 'quality';
 
-// Sigma schedules for LTX-2.3 lipsync (ManualSigmas)
-const SIGMA_SCHEDULES: Record<PresetTier, string> = {
-    fast:     '1., 0.975, 0.725, 0.421875, 0.0',
-    balanced: '1., 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0',
-    quality:  '1., 0.99375, 0.9875, 0.98125, 0.975, 0.95, 0.925, 0.909375, 0.8, 0.725, 0.55, 0.421875, 0.25, 0.1, 0.0',
-};
-
 const PRESETS: Record<PresetTier, { label: string; description: string; steps: number; cfg: number; strength: number }> = {
-    fast:     { label: 'Fast',     description: 'Quick preview',     steps: 8,  cfg: 1, strength: 0.85 },
-    balanced: { label: 'Balanced', description: 'Good sync quality', steps: 14, cfg: 1, strength: 0.90 },
+    fast:     { label: 'Fast',     description: 'Quick preview',     steps: 8,  cfg: 1, strength: 0.75 },
+    balanced: { label: 'Balanced', description: 'Good sync quality', steps: 14, cfg: 1, strength: 0.82 },
     quality:  { label: 'Quality',  description: 'Best lipsync',      steps: 20, cfg: 1, strength: 0.85 },
 };
 
@@ -119,60 +112,62 @@ export const Ltx2LipsyncTab = () => {
                 faceFilename = uploadRes.name;
             }
 
-            // Load LTX-2.3 Lipsync v2 workflow (uses installed LTX-2.3 models)
-            const response = await fetch(`/workflows/LTX2lipsyncv2.json?v=${Date.now()}`);
-            if (!response.ok) throw new Error('Failed to load LTX-2.3 Lipsync v2 workflow');
+            // Load LTX-2 Lipsync workflow (uses installed LTX-2 19B models)
+            const response = await fetch(`/workflows/LTX2lipsync.json?v=${Date.now()}`);
+            if (!response.ok) throw new Error('Failed to load LTX-2 Lipsync workflow');
             const workflow = await response.json();
 
             const activeSeed = seed === -1 ? Math.floor(Math.random() * 1000000000000000) : seed;
             const runTag = Date.now().toString(36);
 
-            // Remove HuggingFaceDownloader, ShowText and PreviewAudio nodes (handled by UI)
-            delete workflow['5266'];
-            delete workflow['5267'];
-            delete workflow['5270'];
-            delete workflow['5271'];
-            delete workflow['5612'];
+            // Remove HuggingFaceDownloader + ShowText nodes (handled by UI)
+            delete workflow['139'];
+            delete workflow['143'];
+            delete workflow['455'];
+            delete workflow['559'];
 
-            // Node 5310: LoadImage (face)
-            if (workflow['5310']) workflow['5310'].inputs.image = faceFilename;
+            // Node 392: LoadImage (face)
+            if (workflow['392']) workflow['392'].inputs.image = faceFilename;
 
-            // Node 5299: VHS_LoadAudioUpload (audio + timing)
-            if (workflow['5299']) {
-                workflow['5299'].inputs.audio = audioFilename;
-                workflow['5299'].inputs.start_time = audioStart;
-                workflow['5299'].inputs.duration = audioDuration;
+            // Node 404: LoadAudio
+            if (workflow['404']) workflow['404'].inputs.audio = audioFilename;
+
+            // Node 402: CR Prompt Text (positive prompt)
+            if (workflow['402']) workflow['402'].inputs.prompt = prompt;
+
+            // Node 403: CLIPTextEncode (negative prompt)
+            if (workflow['403']) workflow['403'].inputs.text = negativePrompt;
+
+            // Node 393: Audio start time
+            if (workflow['393']) workflow['393'].inputs.value = audioStart;
+
+            // Node 394: Audio duration
+            if (workflow['394']) workflow['394'].inputs.value = audioDuration;
+
+            // Node 395: AspectRatioImageSize (resolution)
+            if (workflow['395']) {
+                workflow['395'].inputs.width = selectedAR.width;
+                workflow['395'].inputs.height = selectedAR.height;
+                workflow['395'].inputs.aspect_ratio = aspectRatio;
             }
 
-            // Node 5283: CLIPTextEncode (positive prompt)
-            if (workflow['5283']) workflow['5283'].inputs.text = prompt;
+            // Node 405: RandomNoise (seed)
+            if (workflow['405']) workflow['405'].inputs.noise_seed = activeSeed;
 
-            // Node 5282: CLIPTextEncode (negative prompt)
-            if (workflow['5282']) workflow['5282'].inputs.text = negativePrompt;
+            // Node 425: BasicScheduler (steps)
+            if (workflow['425']) workflow['425'].inputs.steps = steps;
 
-            // Node 5293: RandomNoise (seed)
-            if (workflow['5293']) workflow['5293'].inputs.noise_seed = activeSeed;
+            // Node 426: CFGGuider (cfg)
+            if (workflow['426']) workflow['426'].inputs.cfg = cfg;
 
-            // Node 5294: CFGGuider (cfg)
-            if (workflow['5294']) workflow['5294'].inputs.cfg = cfg;
+            // Node 410: LTXVImgToVideoInplace (denoise strength)
+            if (workflow['410']) workflow['410'].inputs.strength = strength;
 
-            // Node 5301: LTXVImgToVideoInplace (image adherence strength)
-            if (workflow['5301']) workflow['5301'].inputs.strength = strength;
+            // Node 396: VHS_VideoCombine (output filename)
+            if (workflow['396']) workflow['396'].inputs.filename_prefix = `VIDEO/LTX2/LIPSYNC_${runTag}`;
 
-            // Node 5286: ManualSigmas (denoising schedule based on preset)
-            if (workflow['5286']) {
-                const sigmas = SIGMA_SCHEDULES[preset as PresetTier] || SIGMA_SCHEDULES.balanced;
-                workflow['5286'].inputs.sigmas = sigmas;
-            }
-
-            // Node 5289: ImageResizeKJv2 (output resolution from aspect ratio)
-            if (workflow['5289']) {
-                workflow['5289'].inputs.width = selectedAR.width;
-                workflow['5289'].inputs.height = selectedAR.height;
-            }
-
-            // Node 5296: VHS_VideoCombine (output filename)
-            if (workflow['5296']) workflow['5296'].inputs.filename_prefix = `VIDEO/LTX2/LIPSYNC_${runTag}`;
+            // Node 470: SaveImage (last frame)
+            if (workflow['470']) workflow['470'].inputs.filename_prefix = `VIDEO/LTX2/LIPSYNC_LAST_${runTag}`;
 
             await queueWorkflow(workflow);
             toast('LTX-2 Lipsync queued!', 'success');

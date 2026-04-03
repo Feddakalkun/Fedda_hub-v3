@@ -298,6 +298,7 @@ function App() {
   };
 
   const currentModel = getCurrentModel();
+  const isLtxHubUnderConstruction = activeTab === 'ltxhub';
   const resolvedVideoModelId = (() => {
     if (activeTab !== 'ltxhub') return currentModel.id;
     return (currentModel as any)?.mapsTo || 'ltx-i2v';
@@ -345,6 +346,11 @@ function App() {
               </div>
               <div className="flex items-center gap-2">
                 <TopSystemStrip />
+                {isLtxHubUnderConstruction && (
+                  <span className="px-2.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 text-[11px] font-semibold text-amber-200">
+                    LTX Hub: Under Construction
+                  </span>
+                )}
                 <button
                   onClick={() => {
                     setShowLanding(false);
@@ -383,6 +389,13 @@ function App() {
                 </div>
 
                 <div className="h-full" style={{ display: activeTab === 'ltxhub' ? undefined : 'none' }}>
+                  <div className="mx-4 mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-amber-300 font-semibold">Under Construction</p>
+                    <p className="mt-1 text-sm text-amber-100/90">
+                      LTX Hub is temporarily in exploration mode while we stabilize workflows and model mappings.
+                      You can explore settings, but generation is paused for now.
+                    </p>
+                  </div>
                   <VideoPage modelId={resolvedVideoModelId} modelLabel={currentModel.label} />
                 </div>
 

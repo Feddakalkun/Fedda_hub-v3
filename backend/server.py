@@ -1545,9 +1545,9 @@ REQUIRED_MODELS["ltx2-lipsync"] = REQUIRED_MODELS["ltx2-i2v-sound"] + [
     {
         "id": "melband-roformer",
         "name": "MelBandRoformer_fp16.safetensors",
-        "url": "https://huggingface.co/ank-ai/MelBandRoformer/resolve/main/MelBandRoformer_fp16.safetensors",
-        "path": "audio_separation/MelBandRoformer_fp16.safetensors",
-        "size_gb": 0.14
+        "url": "https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBandRoformer_fp16.safetensors",
+        "path": "diffusion_models/MelBandRoformer_fp16.safetensors",
+        "size_gb": 0.43
     },
 ]
 
@@ -2401,6 +2401,7 @@ async def chat_with_llm(request: ChatRequest):
 if __name__ == "__main__":
     print("FEDDA Backend starting on port 8000...")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 

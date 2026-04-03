@@ -266,6 +266,21 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
 
     // Queue workflow with node map building
     const queueWorkflow = useCallback(async (workflow: Record<string, any>): Promise<string> => {
+        const hash = (typeof window !== 'undefined' ? window.location.hash : '').toLowerCase();
+        if (hash.startsWith('#ltxhub')) {
+            const blockedMessage = 'LTX Hub is under construction. Generation is temporarily disabled while we stabilize this module.';
+            setState('error');
+            stateRef.current = 'error';
+            setError({
+                type: 'under_construction',
+                message: blockedMessage,
+            });
+            setCurrentNodeName('Under Construction');
+            setCurrentNodeId(null);
+            setProgress(0);
+            throw new Error(blockedMessage);
+        }
+
         // Reset cancelled flag so WS messages work again
         cancelledRef.current = false;
 

@@ -9,6 +9,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
     const [activeVideo, setActiveVideo] = useState<'bg' | 'grok'>('bg');
     const [backendOnline, setBackendOnline] = useState(false);
     const [comfyOnline, setComfyOnline] = useState(false);
+    const [comfyFullyReady, setComfyFullyReady] = useState(false);
     const [startupDetail, setStartupDetail] = useState('Initializing services...');
     const [checks, setChecks] = useState(0);
     const [lastCheckedAt, setLastCheckedAt] = useState<number>(Date.now());
@@ -28,18 +29,40 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
                 let detail = 'Initializing services...';
 
                 let comfyAlive = false;
+                let comfyReady = false;
                 try {
                     const comfyRes = await fetch('/comfy/system_stats', { cache: 'no-store' });
+                    comfyReady = comfyRes.ok;
                     comfyAlive = comfyRes.ok;
                 } catch {
+                    comfyReady = false;
                     comfyAlive = false;
                 }
-                backendAlive = comfyAlive;
+
+                // Fallback: allow entering as soon as ComfyUI port is up,
+                // even if /system_stats is not ready yet (node registry still loading).
+                if (!comfyAlive) {
+                    try {
+                        const comfyRoot = await fetch('/comfy/', { cache: 'no-store' });
+                        comfyAlive = comfyRoot.status < 500;
+                    } catch {
+                        comfyAlive = false;
+                    }
+                }
+
+                try {
+                    const backendRes = await fetch('/api/system/node-install-status', { cache: 'no-store' });
+                    backendAlive = backendRes.ok;
+                } catch {
+                    backendAlive = false;
+                }
 
                 if (!backendAlive) {
                     detail = 'Starting backend API service...';
                 } else if (!comfyAlive) {
                     detail = 'ComfyUI startup in progress...';
+                } else if (!comfyReady) {
+                    detail = 'ComfyUI port is online. Loading nodes and registry...';
                 } else {
                     detail = 'ComfyUI is online. System is ready.';
                 }
@@ -47,6 +70,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
                 if (!isMounted) return;
                 setBackendOnline(backendAlive);
                 setComfyOnline(comfyAlive);
+                setComfyFullyReady(comfyReady);
                 setStartupDetail(detail);
                 setChecks((prev) => prev + 1);
                 setLastCheckedAt(Date.now());
@@ -54,6 +78,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
                 if (!isMounted) return;
                 setBackendOnline(false);
                 setComfyOnline(false);
+                setComfyFullyReady(false);
                 setStartupDetail('Starting backend API service...');
                 setChecks((prev) => prev + 1);
                 setLastCheckedAt(Date.now());
@@ -169,7 +194,7 @@ export const LandingPage = ({ onEnter }: LandingPageProps) => {
                                 API: {backendOnline ? 'Online' : 'Starting'}
                             </div>
                             <div className={`rounded-md px-2 py-1.5 border ${comfyOnline ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-400'}`}>
-                                ComfyUI: {comfyOnline ? 'Online' : 'Starting'}
+                                ComfyUI: {comfyOnline ? (comfyFullyReady ? 'Online' : 'Port Online') : 'Starting'}
                             </div>
                         </div>
                         <div className="text-[10px] text-slate-500">

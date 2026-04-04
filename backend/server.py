@@ -1697,6 +1697,67 @@ REQUIRED_MODELS["ltx2-lipsync"] = REQUIRED_MODELS["ltx2-i2v-sound"] + [
     },
 ]
 
+
+# ─── LTX-2.3 5-in-1 AV Workflow ────────────────────────────────────
+REQUIRED_MODELS["ltx23-av"] = [
+    {
+        "id": "ltx23-unet-fp8",
+        "name": "ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+        "path": "diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+        "size_gb": 21.86
+    },
+    {
+        "id": "ltx23-text-projection",
+        "name": "ltx-2.3_text_projection_bf16.safetensors",
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors",
+        "path": "text_encoders/ltx-2.3_text_projection_bf16.safetensors",
+        "size_gb": 2.15
+    },
+    {
+        "id": "ltx23-gemma3",
+        "name": "gemma_3_12B_it.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it.safetensors",
+        "path": "text_encoders/gemma_3_12B_it.safetensors",
+        "size_gb": 22.71
+    },
+    {
+        "id": "ltx23-video-vae",
+        "name": "LTX23_video_vae_bf16.safetensors",
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors",
+        "path": "vae/LTX23_video_vae_bf16.safetensors",
+        "size_gb": 1.35
+    },
+    {
+        "id": "ltx23-audio-vae",
+        "name": "LTX23_audio_vae_bf16.safetensors",
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_audio_vae_bf16.safetensors",
+        "path": "vae/LTX23_audio_vae_bf16.safetensors",
+        "size_gb": 0.35
+    },
+    {
+        "id": "ltx23-distilled-lora",
+        "name": "ltx-2.3-22b-distilled-lora-384.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384.safetensors",
+        "path": "loras/ltx-2.3-22b-distilled-lora-384.safetensors",
+        "size_gb": 7.08
+    },
+    {
+        "id": "ltx23-union-control",
+        "name": "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control/resolve/main/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+        "path": "loras/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+        "size_gb": 0.62
+    },
+    {
+        "id": "lotus-depth-v2",
+        "name": "lotus-depth-g-v2-0-disparity.safetensors",
+        "url": "https://huggingface.co/jingheya/lotus-depth-g-v2-0-disparity/resolve/main/unet/diffusion_pytorch_model.safetensors",
+        "path": "diffusion_models/lotus-depth-g-v2-0-disparity.safetensors",
+        "size_gb": 3.23
+    }
+]
+
 # ─── LTX Optional Add-on LoRA packs (downloadable from Settings) ───────────
 # These are optional capability packs and are NOT required for baseline workflows.
 REQUIRED_MODELS["ltx23-ic-lora-pack"] = [

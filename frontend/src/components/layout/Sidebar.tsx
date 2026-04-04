@@ -11,10 +11,13 @@ import {
     MessageSquare,
     Images,
     Film,
-    Download,
     Wand2,
+    Download,
+    Flame,
 } from 'lucide-react';
 import { APP_CONFIG, MODELS } from '../../config/api';
+import { NsfwToggle } from '../nsfw/NsfwToggle';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface SidebarProps {
     activeTab: string;
@@ -49,8 +52,20 @@ function groupByCategory(models: ModelEntry[]): { category: string | null; items
 
 export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) => {
     const [collapsedMenus, setCollapsedMenus] = useState<Record<string, boolean>>({});
+    const { nsfwEnabled } = useUserPreferences();
 
-    const sections = [
+    const NSFW_MODELS = [
+        { id: 'nsfw-generate', label: 'GENERATE', icon: 'Sparkles', category: 'STUDIO' },
+    ];
+
+    const unlockedSection = nsfwEnabled ? {
+        label: 'NSFW',
+        items: [
+            { id: 'nsfw-studio', label: 'Studio Base', icon: Flame, models: NSFW_MODELS },
+        ] as SidebarItem[],
+    } : null;
+
+    const baseSections = [
         {
             label: 'CREATE',
             items: [
@@ -80,8 +95,10 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
         },
     ];
 
+    const sections = unlockedSection ? [unlockedSection, ...baseSections] : baseSections;
+
     return (
-        <aside className="w-72 bg-[#0a0a0f] border-r border-white/5 flex flex-col shadow-2xl z-10">
+        <aside className="w-72 theme-bg-sidebar border-r border-white/5 flex flex-col shadow-2xl z-10 relative">
             {/* Header / Logo */}
             <div className="p-8 pb-10">
                 <h1 className="text-3xl font-bold bg-gradient-to-br from-white via-slate-200 to-slate-400 bg-clip-text text-transparent tracking-tighter">
@@ -133,15 +150,15 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
 
                                             onTabChange(item.id);
                                         }}
-                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                                            ? 'bg-white text-black shadow-lg'
+                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group relative z-50 ${isActive
+                                            ? 'theme-active-tab shadow-lg'
                                             : 'text-slate-400 hover:text-white hover:bg-white/5'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
                                             <item.icon
-                                                className={`w-5 h-5 ${isActive
-                                                    ? 'text-black'
+                                                className={`w-5 h-5 relative z-50 ${isActive
+                                                    ? '' // Handled by CSS
                                                     : 'text-slate-500 group-hover:text-slate-300'
                                                     } transition-colors`}
                                             />
@@ -204,6 +221,10 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
                 ))}
             </nav>
 
+            {/* Footer / Toggle */}
+            <div className="p-4 border-t border-white/5 bg-[#050508]/50 relative z-50">
+                <NsfwToggle />
+            </div>
         </aside>
     );
 };

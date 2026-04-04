@@ -21,9 +21,13 @@ import { TopSystemStrip } from './components/ui/TopSystemStrip';
 import { MODELS } from './config/api';
 import { addUiLog, getUiLogs, UI_LOG_EVENT } from './services/uiLogger';
 import { HFTokenSettings } from './components/HFTokenSettings';
+import { UserPreferencesProvider, useUserPreferences } from './contexts/UserPreferencesContext';
+import { NsfwConfirmationModal } from './components/nsfw/NsfwConfirmationModal';
+import { NsfwStudioPage } from './components/nsfw/NsfwStudioPage';
 
 const UI_STATE_KEY = 'fedda_ui_state_v1';
 const VALID_TABS = new Set([
+  'nsfw-studio',
   'chat',
   'image',
   'qwen',
@@ -41,6 +45,7 @@ const VALID_TABS = new Set([
 ]);
 
 const MODEL_TAB_MAP = {
+  'nsfw-studio': [{ id: 'nsfw-generate', label: 'GENERATE', icon: 'Sparkles', category: 'STUDIO' }],
   image: MODELS.IMAGE,
   qwen: MODELS.QWEN,
   flux2klein: MODELS.FLUX2KLEIN,
@@ -142,7 +147,14 @@ const readInitialUiState = (): UiStateSnapshot => {
   };
 };
 
-function App() {
+// Gate component to render the modal by consuming the context
+const NsfwModalGate = () => {
+    const { isConfirmingNsfw, confirmNsfw, cancelNsfw } = useUserPreferences();
+    if (!isConfirmingNsfw) return null;
+    return <NsfwConfirmationModal onConfirm={confirmNsfw} onCancel={cancelNsfw} />;
+};
+
+function FeddaApp() {
   const [initialState] = useState<UiStateSnapshot>(() => readInitialUiState());
   const [showLanding, setShowLanding] = useState(initialState.showLanding);
   const [activeTab, setActiveTab] = useState(initialState.activeTab);
@@ -308,7 +320,8 @@ function App() {
   return (
     <ToastProvider>
       <ComfyExecutionProvider>
-        <div className="flex h-screen bg-[#0a0a0f] text-white overflow-hidden selection:bg-white/20 font-sans">
+        <NsfwModalGate />
+        <div className="flex h-screen theme-bg-app text-white overflow-hidden selection:bg-white/20 font-sans">
           {showLanding && <LandingPage onEnter={() => setShowLanding(false)} />}
 
           <Sidebar
@@ -317,7 +330,7 @@ function App() {
             onTabChange={handleTabChange}
           />
 
-          <main className="flex-1 flex flex-col overflow-hidden relative bg-[#050508]">
+          <main className="flex-1 flex flex-col overflow-hidden relative theme-bg-main">
             <header className="h-20 border-b border-white/5 flex items-center px-8 z-10 justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
@@ -374,6 +387,10 @@ function App() {
 
             <div className="flex-1 flex overflow-hidden relative z-0">
               <div className="flex-1 overflow-auto">
+                <div className="h-full" style={{ display: activeTab === 'nsfw-studio' ? undefined : 'none' }}>
+                  <NsfwStudioPage modelId={activeSubTab ?? undefined} />
+                </div>
+
                 <div className="h-full" style={{ display: activeTab === 'qwen' ? undefined : 'none' }}>
                   <QwenAnglePage modelId={currentModel.id} modelLabel={currentModel.label} />
                 </div>
@@ -441,4 +458,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <UserPreferencesProvider>
+      <FeddaApp />
+    </UserPreferencesProvider>
+  );
+}

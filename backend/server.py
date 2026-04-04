@@ -1522,6 +1522,39 @@ REQUIRED_MODELS["ponyxl-generate"] = REQUIRED_MODELS["ponyxl"]
 
 # Scene Builder uses the same WAN models as Lipsync
 REQUIRED_MODELS["scene-builder"] = REQUIRED_MODELS["lipsync"]
+
+# NSFW BJ workflow — Wan 2.2 I2V dual-UNet + NSFW CLIP + VAE
+REQUIRED_MODELS["nsfw-bj"] = [
+    {
+        "id": "wan22-low-noise",
+        "name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+        "path": "diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+        "size_gb": 13.32
+    },
+    {
+        "id": "wan22-high-noise",
+        "name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+        "path": "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+        "size_gb": 13.32
+    },
+    {
+        "id": "wan21-vae",
+        "name": "wan_2.1_vae.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
+        "path": "vae/wan_2.1_vae.safetensors",
+        "size_gb": 0.40
+    },
+    {
+        "id": "nsfw-wan-clip",
+        "name": "nsfw_wan_umt5-xxl_fp8_scaled.safetensors",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5-xxl_fp8_e4m3fn.safetensors",
+        "path": "text_encoders/nsfw_wan_umt5-xxl_fp8_scaled.safetensors",
+        "size_gb": 4.89
+    },
+]
+REQUIRED_MODELS["nsfw-generate"] = REQUIRED_MODELS["nsfw-bj"]
 # Image mode aliases (Z-Image submodes share the same model set)
 REQUIRED_MODELS["image-generate"] = REQUIRED_MODELS["z-image"]
 REQUIRED_MODELS["image-hq"] = REQUIRED_MODELS["z-image"]

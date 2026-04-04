@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Sparkles, Shuffle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useComfyExecution } from '../../contexts/ComfyExecutionContext';
-import { comfyService } from '../../services/comfyService';
 import { useToast } from '../ui/Toast';
 import { usePersistentState } from '../../hooks/usePersistentState';
 

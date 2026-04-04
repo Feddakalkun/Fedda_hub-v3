@@ -1364,6 +1364,41 @@ REQUIRED_MODELS = {
             "url": "https://huggingface.co/scenario-labs/sam_vit/resolve/main/sam_vit_b_01ec64.pth",
             "path": "sams/sam_vit_b_01ec64.pth",
             "size_gb": 0.349
+        },
+        {
+            "id": "qwen-instantx-controlnet",
+            "name": "Qwen-Image-InstantX-ControlNet-Union.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets/resolve/main/split_files/controlnet/Qwen-Image-InstantX-ControlNet-Union.safetensors",
+            "path": "controlnet/Qwen-Image-InstantX-ControlNet-Union.safetensors",
+            "size_gb": 3.54
+        },
+        {
+            "id": "qwen-image-edit-2509",
+            "name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+            "path": "diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+            "size_gb": 9.1
+        },
+        {
+            "id": "upscaler-ultrasharp",
+            "name": "4x-UltraSharp.pth",
+            "url": "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth",
+            "path": "upscale_models/4x-UltraSharp.pth",
+            "size_gb": 0.067
+        },
+        {
+            "id": "upscaler-nmkd",
+            "name": "4x-NMKD-Superscale-SP_178000_G.pth",
+            "url": "https://huggingface.co/gemasai/4x_NMKD-Superscale-SP_178000_G/resolve/main/4x-NMKD-Superscale-SP_178000_G.pth",
+            "path": "upscale_models/4x-NMKD-Superscale-SP_178000_G.pth",
+            "size_gb": 0.067
+        },
+        {
+            "id": "upscaler-realesrgan",
+            "name": "RealESRGAN_x4plus.pth",
+            "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
+            "path": "upscale_models/RealESRGAN_x4plus.pth",
+            "size_gb": 0.067
         }
         ],
     "ace-step": [
@@ -1528,6 +1563,7 @@ REQUIRED_MODELS["image-hq"] = REQUIRED_MODELS["z-image"]
 REQUIRED_MODELS["image-img2img"] = REQUIRED_MODELS["z-image"]
 REQUIRED_MODELS["image-mood-edit"] = REQUIRED_MODELS["z-image"]
 REQUIRED_MODELS["image-inpaint"] = REQUIRED_MODELS["z-image"]
+REQUIRED_MODELS["image-autoinpaint"] = REQUIRED_MODELS["z-image"]
 REQUIRED_MODELS["image-metadata"] = REQUIRED_MODELS["z-image"]
 # FLUX2KLEIN modes share the same base model set
 REQUIRED_MODELS["flux2klein-image-edit"] = REQUIRED_MODELS["flux2klein-txt2img9b"]

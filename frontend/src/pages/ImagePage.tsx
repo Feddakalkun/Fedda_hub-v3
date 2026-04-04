@@ -7,10 +7,11 @@ import { HQPortraitTab } from '../components/image/HQPortraitTab';
 import { Img2ImgTab } from '../components/image/Img2ImgTab';
 import { MoodEditTab } from '../components/image/MoodEditTab';
 import { InpaintTab } from '../components/image/InpaintTab';
+import { AutoInpaintTab } from '../components/image/AutoInpaintTab';
 import { MetadataTab } from '../components/image/MetadataTab';
 import { WorkbenchShell } from '../components/layout/WorkbenchShell';
 
-type ImageMode = 'image-generate' | 'image-hq' | 'image-img2img' | 'image-mood-edit' | 'image-inpaint' | 'image-metadata';
+type ImageMode = 'image-generate' | 'image-hq' | 'image-img2img' | 'image-mood-edit' | 'image-inpaint' | 'image-autoinpaint' | 'image-metadata';
 
 const TAB_ALIASES: Record<string, ImageMode> = {
     generate: 'image-generate',
@@ -18,6 +19,7 @@ const TAB_ALIASES: Record<string, ImageMode> = {
     img2img: 'image-img2img',
     'mood-edit': 'image-mood-edit',
     inpaint: 'image-inpaint',
+    autoinpaint: 'image-autoinpaint',
     metadata: 'image-metadata',
     'z-image': 'image-generate',
     'image-generate': 'image-generate',
@@ -25,6 +27,7 @@ const TAB_ALIASES: Record<string, ImageMode> = {
     'image-img2img': 'image-img2img',
     'image-mood-edit': 'image-mood-edit',
     'image-inpaint': 'image-inpaint',
+    'image-autoinpaint': 'image-autoinpaint',
     'image-metadata': 'image-metadata',
 };
 
@@ -88,6 +91,9 @@ export const ImagePage = ({ modelId }: ImagePageProps) => {
                                 initialImageUrl={activeMode === 'image-inpaint' ? pendingImageUrl : null}
                                 onConsumeImage={() => setPendingImageUrl(null)}
                             />
+                        </div>
+                        <div style={{ display: activeMode === 'image-autoinpaint' ? undefined : 'none' }}>
+                            <AutoInpaintTab />
                         </div>
                         <div style={{ display: activeMode === 'image-metadata' ? undefined : 'none' }}>
                             <MetadataTab

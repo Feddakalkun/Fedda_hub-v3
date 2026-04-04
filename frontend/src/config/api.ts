@@ -71,6 +71,7 @@ export const MODELS = {
         { id: 'image-img2img', label: 'IMG2IMG', icon: 'Image', category: 'Z-IMAGE' },
         { id: 'image-mood-edit', label: 'MOOD EDIT', icon: 'Sun', category: 'Z-IMAGE' },
         { id: 'image-inpaint', label: 'INPAINT', icon: 'Paintbrush', category: 'Z-IMAGE' },
+        { id: 'image-autoinpaint', label: 'AUTO INPAINT', icon: 'Wand2', category: 'Z-IMAGE' },
         { id: 'image-metadata', label: 'METADATA', icon: 'FileText', category: 'Z-IMAGE' },
     ],
     QWEN: [

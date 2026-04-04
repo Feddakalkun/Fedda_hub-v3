@@ -45,7 +45,10 @@ const VALID_TABS = new Set([
 ]);
 
 const MODEL_TAB_MAP = {
-  'nsfw-studio': [{ id: 'nsfw-generate', label: 'GENERATE', icon: 'Sparkles', category: 'STUDIO' }],
+  'nsfw-studio': [
+    { id: 'nsfw-generate', label: 'BJ VIDEO', icon: 'Flame', category: 'VIDEO' },
+    { id: 'nsfw-sdxl', label: 'SDXL IMAGE', icon: 'Sparkles', category: 'IMAGE' },
+  ],
   image: MODELS.IMAGE,
   qwen: MODELS.QWEN,
   flux2klein: MODELS.FLUX2KLEIN,
@@ -84,6 +87,7 @@ const normalizeSubTab = (tab: string, subTab: string | null | undefined): string
       img2img: 'image-img2img',
       'mood-edit': 'image-mood-edit',
       inpaint: 'image-inpaint',
+      autoinpaint: 'image-autoinpaint',
       metadata: 'image-metadata',
     };
     if (legacyMap[subTab]) return legacyMap[subTab];
@@ -192,6 +196,28 @@ function FeddaApp() {
       setActiveSubTab(null);
     }
   }, [activeTab, activeSubTab]);
+
+  // Global keyboard shortcuts: Alt+1-9 for fast tab switching
+  useEffect(() => {
+    const SHORTCUT_TABS = [
+      'chat', 'image', 'video', 'audio', 'ltxhub', 'gallery', 'tiktok', 'library', 'settings'
+    ];
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= SHORTCUT_TABS.length) {
+        e.preventDefault();
+        const tab = SHORTCUT_TABS[num - 1];
+        if (VALID_TABS.has(tab)) {
+          setShowLanding(false);
+          setActiveTab(tab);
+          setActiveSubTab(isModelTab(tab) ? getDefaultSubTab(tab) : null);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   useEffect(() => {
     addUiLog('info', 'app', 'FEDDA UI initialized');

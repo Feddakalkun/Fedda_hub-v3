@@ -55,7 +55,8 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
     const { nsfwEnabled } = useUserPreferences();
 
     const NSFW_MODELS = [
-        { id: 'nsfw-generate', label: 'GENERATE', icon: 'Sparkles', category: 'STUDIO' },
+        { id: 'nsfw-generate', label: 'BJ VIDEO', icon: 'Flame', category: 'VIDEO' },
+        { id: 'nsfw-sdxl', label: 'SDXL IMAGE', icon: 'Sparkles', category: 'IMAGE' },
     ];
 
     const unlockedSection = nsfwEnabled ? {
@@ -64,6 +65,12 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
             { id: 'nsfw-studio', label: 'Studio Base', icon: Flame, models: NSFW_MODELS },
         ] as SidebarItem[],
     } : null;
+
+    // Alt+N shortcut hints for fast navigation
+    const SHORTCUT_MAP: Record<string, string> = {
+        chat: '1', image: '2', video: '3', audio: '4', ltxhub: '5',
+        gallery: '6', tiktok: '7', library: '8', settings: '9',
+    };
 
     const baseSections = [
         {
@@ -99,14 +106,23 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
 
     return (
         <aside className="w-72 theme-bg-sidebar border-r border-white/5 flex flex-col shadow-2xl z-10 relative">
+            {/* Subtle top accent line */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
             {/* Header / Logo */}
-            <div className="p-8 pb-10">
+            <div className="p-8 pb-10 relative">
                 <h1 className="text-3xl font-bold bg-gradient-to-br from-white via-slate-200 to-slate-400 bg-clip-text text-transparent tracking-tighter">
                     {APP_CONFIG.NAME}<span className="text-white">.</span>
                 </h1>
                 <p className="text-[10px] text-slate-500 font-bold tracking-widest mt-1 uppercase">
                     {APP_CONFIG.DESCRIPTION}
                 </p>
+                {nsfwEnabled && (
+                    <div className="absolute top-8 right-8 flex items-center gap-1">
+                        <Flame className="w-3 h-3 text-fuchsia-500" />
+                        <span className="text-[8px] text-fuchsia-400 font-bold tracking-widest uppercase">Unlocked</span>
+                    </div>
+                )}
             </div>
 
             {/* Navigation */}
@@ -164,12 +180,19 @@ export const Sidebar = ({ activeTab, activeSubTab, onTabChange }: SidebarProps) 
                                             />
                                             <span className="font-medium text-sm tracking-tight">{item.label}</span>
                                         </div>
-                                        {item.models && (
-                                            <ChevronRight
-                                                className={`w-4 h-4 text-slate-600 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-black' : ''
-                                                    }`}
-                                            />
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {SHORTCUT_MAP[item.id] && !isActive && (
+                                                <span className="text-[9px] font-mono text-slate-700 group-hover:text-slate-500 transition-colors hidden xl:block">
+                                                    alt+{SHORTCUT_MAP[item.id]}
+                                                </span>
+                                            )}
+                                            {item.models && (
+                                                <ChevronRight
+                                                    className={`w-4 h-4 text-slate-600 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-black' : ''
+                                                        }`}
+                                                />
+                                            )}
+                                        </div>
                                     </button>
                                         );
                                     })()}

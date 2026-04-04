@@ -81,12 +81,31 @@ export const TopSystemStrip = () => {
                 {gpu ? (
                     <>
                         <span className="text-slate-200 font-medium">{gpu.name}</span>
-                        {gpu.temp !== null && <span className="text-amber-400 font-semibold">{gpu.temp}°C</span>}
-                        <span className="text-slate-400">{gpu.usedGiB}/{gpu.totalGiB} GB</span>
-                        <span className="text-slate-500">{gpu.load}%</span>
+                        {gpu.temp !== null && (
+                            <span className={`font-semibold ${gpu.temp > 80 ? 'text-red-400' : gpu.temp > 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {gpu.temp}°C
+                            </span>
+                        )}
+                        {/* VRAM mini bar */}
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-14 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div
+                                    className="vram-bar-fill"
+                                    style={{
+                                        width: `${gpu.percent}%`,
+                                        background: gpu.percent > 90
+                                            ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                                            : gpu.percent > 75
+                                            ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                                            : 'linear-gradient(90deg, #34d399, #10b981)',
+                                    }}
+                                />
+                            </div>
+                            <span className="text-slate-400 font-mono">{gpu.usedGiB}/{gpu.totalGiB}GB</span>
+                        </div>
                     </>
                 ) : (
-                    <span className="text-slate-400">GPU stats loading...</span>
+                    <span className="text-slate-400">GPU loading…</span>
                 )}
             </div>
 

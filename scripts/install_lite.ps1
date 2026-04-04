@@ -400,12 +400,18 @@ if (-not (Test-Path $PyEmbedExe)) {
     Write-Step "Embedded Python 3.11.9 already present." "Green"
 }
 
-# Determine the Python to use for ALL steps — embedded zip has NO venv module,
+# Determine the Python to use for ALL steps - embedded zip has NO venv module,
 # so we install packages directly into embedded Python (same as portable installer).
 $EmbedPy = $PyEmbedExe
 if (-not (Test-Path $EmbedPy)) {
     # Fallback: use system Python if embedded download failed
-    $SysPy = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+    # Note: use if/else instead of ?. for PowerShell 5.1 compatibility
+    $SysPyCmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($SysPyCmd) {
+        $SysPy = $SysPyCmd.Source
+    } else {
+        $SysPy = $null
+    }
     if (-not $SysPy) {
         Write-Step "ERROR: No Python available. Embedded download must have failed." "Red"
         throw "No Python found"
@@ -413,11 +419,11 @@ if (-not (Test-Path $EmbedPy)) {
     $EmbedPy = $SysPy
     Write-Step "WARNING: Using system Python as fallback (embedded download failed)." "Yellow"
 } else {
-    Write-Step "Using embedded Python 3.11.9 directly (no venv — embedded zip has no venv module)." "Green"
+    Write-Step "Using embedded Python 3.11.9 directly (no venv - embedded zip lacks venv module)." "Green"
 }
 
 # ============================================================================
-# 1. PYTHON PACKAGES (directly into embedded Python — no venv)
+# 1. PYTHON PACKAGES (directly into embedded Python - no venv)
 # ============================================================================
 Write-Header "STEP 1/7 - Python Setup"
 

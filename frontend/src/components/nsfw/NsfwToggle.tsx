@@ -7,7 +7,7 @@ export const NsfwToggle = ({ className = '' }: { className?: string }) => {
     return (
         <button
             onClick={toggleNsfw}
-            title={nsfwEnabled ? "Lock Studio (Safe Mode)" : "Unlock Studio (NSFW Mode)"}
+            title={nsfwEnabled ? "Disable NSFW Mode" : "Enable NSFW Mode"}
             className={`relative flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-300 group overflow-hidden ${
                 nsfwEnabled 
                     ? 'bg-gradient-to-r from-fuchsia-900/30 to-rose-900/10 border border-fuchsia-500/30 shadow-[0_0_15px_rgba(217,70,239,0.15)]' 
@@ -28,7 +28,7 @@ export const NsfwToggle = ({ className = '' }: { className?: string }) => {
                 <span className={`font-medium text-sm tracking-tight transition-colors ${
                     nsfwEnabled ? 'text-fuchsia-100 drop-shadow-md' : 'text-slate-400 group-hover:text-slate-300'
                 }`}>
-                    {nsfwEnabled ? 'Unlocked Mode' : 'Safe Mode'}
+                    {nsfwEnabled ? 'NSFW Active' : 'Enable NSFW'}
                 </span>
             </div>
 

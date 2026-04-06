@@ -166,5 +166,23 @@
     "url": "https://github.com/evanspearman/ComfyMath.git",
     "folder": "ComfyMath",
     "note": "Math expression nodes — ComfyMathExpression, CM_FloatToInt"
+  },
+  {
+    "name": "comfy_mtb",
+    "url": "https://github.com/melMass/comfy_mtb.git",
+    "folder": "comfy_mtb",
+    "note": "Animation-oriented nodes — MTB batch, interpolation, face tools"
+  },
+  {
+    "name": "CRT-Nodes",
+    "url": "https://github.com/PGCRT/CRT-Nodes.git",
+    "folder": "CRT-Nodes",
+    "note": "CRT collection — 102 utility nodes for ComfyUI"
+  },
+  {
+    "name": "ComfyUI-FishAudioS2",
+    "url": "https://github.com/Saganaki22/ComfyUI-FishAudioS2.git",
+    "folder": "ComfyUI-FishAudioS2",
+    "note": "Fish Audio S2-Pro TTS — voice clone, multi-speaker, text-to-speech"
   }
 ]

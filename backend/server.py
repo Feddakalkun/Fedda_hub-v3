@@ -258,8 +258,9 @@ async def generate(req: GenerateRequest):
         if not payload:
             raise HTTPException(status_code=400, detail=f"Failed to prepare workflow '{req.workflow_id}'")
 
-        # 2. Submit to ComfyUI
-        comfy_payload = {"prompt": payload, "client_id": "fedda_hub_v2"}
+        # 2. Submit to ComfyUI — use the browser's clientId so WS messages route back correctly
+        client_id = req.params.get("client_id", "fedda_hub_v2")
+        comfy_payload = {"prompt": payload, "client_id": client_id}
         resp = requests.post(f"{COMFY_URL}/prompt", json=comfy_payload, timeout=5)
         
         if not resp.ok:

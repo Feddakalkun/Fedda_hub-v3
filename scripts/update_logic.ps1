@@ -72,10 +72,14 @@ Write-Host "`n[0/3] Updating ComfyUI core..." -ForegroundColor Yellow
 try {
     Set-Location $ComfyDir
     $ErrorActionPreference = "Continue"
-    & $GitExe pull 2>&1 | Out-Null
+    # ComfyUI is installed at a pinned commit (detached HEAD), so we can't
+    # just `git pull`. Fetch latest master and reset hard to it instead.
+    & $GitExe fetch origin master 2>&1 | Out-Null
+    & $GitExe checkout master 2>&1 | Out-Null
+    & $GitExe reset --hard origin/master 2>&1 | Out-Null
     $ErrorActionPreference = "Stop"
     Set-Location $RootPath
-    Write-Host "  ComfyUI core updated." -ForegroundColor Green
+    Write-Host "  ComfyUI core updated to latest master." -ForegroundColor Green
 } catch {
     Set-Location $RootPath
     Write-Host "  [WARNING] ComfyUI core update failed (non-fatal): $_" -ForegroundColor Yellow

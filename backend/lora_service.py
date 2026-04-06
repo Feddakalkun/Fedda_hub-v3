@@ -21,7 +21,7 @@ import requests
 PACKS: Dict[str, Dict[str, str]] = {
     "zimage_turbo": {
         "hf_repo":        "pmczip/Z-Image-Turbo_Models",
-        "hf_type":        "dataset",
+        "hf_type":        "model",
         "dest":           "zimage-turbo",
         "img_subfolder":  "ZIT_Images",
     },
@@ -103,18 +103,19 @@ class LoRAService:
     def _preview_url(self, pack_key: str, basename: str) -> Optional[str]:
         """
         Returns the best available preview URL.
-        Priority: GitHub-stored static image > HuggingFace subfolder > HuggingFace root > None.
+        Priority: GitHub-stored static image (.png or .jpg) > HuggingFace subfolder > None.
         """
-        static = self.preview_dir / pack_key / f"{basename}.jpg"
-        if static.exists():
-            return f"/lora-previews/{pack_key}/{basename}.jpg"
+        for ext in (".png", ".jpg"):
+            static = self.preview_dir / pack_key / f"{basename}{ext}"
+            if static.exists():
+                return f"/lora-previews/{pack_key}/{basename}{ext}"
 
         pack = PACKS.get(pack_key)
         if not pack:
             return None
         repo = pack["hf_repo"]
         img_subfolder = pack.get("img_subfolder", "")
-        img_path = f"{img_subfolder}/{basename}.jpg" if img_subfolder else f"{basename}.jpg"
+        img_path = f"{img_subfolder}/{basename}.png" if img_subfolder else f"{basename}.png"
         if pack["hf_type"] == "dataset":
             return f"https://huggingface.co/datasets/{repo}/resolve/main/{img_path}"
         return f"https://huggingface.co/{repo}/resolve/main/{img_path}"

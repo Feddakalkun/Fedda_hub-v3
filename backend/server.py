@@ -7,8 +7,14 @@ Additional services (audio, lora, video) will be added as needed.
 import os
 import json
 import subprocess
+import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
+
+# Ensure backend directory is in sys.path for module imports
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
 
 import requests
 import uvicorn

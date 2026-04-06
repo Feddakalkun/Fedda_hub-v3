@@ -36,6 +36,7 @@ interface ComfyExecutionContextType {
     // Queue a workflow: builds node map, sends to ComfyUI, returns prompt_id
     queueWorkflow: (workflow: Record<string, any>) => Promise<string>;
     cancelExecution: () => Promise<void>;
+    clearOutputs: () => void;
 }
 
 const ComfyExecutionContext = createContext<ComfyExecutionContextType | null>(null);
@@ -264,6 +265,15 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
         }
     }, []);
 
+    const clearOutputs = useCallback(() => {
+        setLastOutputImages([]);
+        setLastOutputVideos([]);
+        setLastCompletedPromptId(null);
+        setOutputReadyCount(0);
+        if (prevPreviewRef.current) { URL.revokeObjectURL(prevPreviewRef.current); prevPreviewRef.current = null; }
+        setPreviewUrl(null);
+    }, []);
+
     // Queue workflow with node map building
     const queueWorkflow = useCallback(async (workflow: Record<string, any>): Promise<string> => {
         // Reset cancelled flag so WS messages work again
@@ -347,6 +357,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             overallProgress,
             queueWorkflow,
             cancelExecution,
+            clearOutputs,
         }}>
             {children}
         </ComfyExecutionContext.Provider>

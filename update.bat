@@ -45,7 +45,7 @@ if not exist "%BASE_DIR%\.git" (
     echo.
     echo [SETUP] No git repo found. Initializing from GitHub...
     "!GIT_EXE!" init
-    "!GIT_EXE!" remote add origin https://github.com/Feddakalkun/comfyuifeddafront.git
+    "!GIT_EXE!" remote add origin https://github.com/Feddakalkun/Fedda_hub-v2.git
 )
 
 :: ============================================================================

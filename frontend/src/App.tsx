@@ -4,6 +4,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage';
 import { LandingPage } from './pages/LandingPage';
 import { TopSystemStrip } from './components/ui/TopSystemStrip';
 import { ToastProvider } from './components/ui/Toast';
+import { ComfyExecutionProvider } from './contexts/ComfyExecutionContext';
 import {
   MessageSquare,
   Sparkles,
@@ -126,8 +127,10 @@ function FeddaApp() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <FeddaApp />
-    </ToastProvider>
+    <ComfyExecutionProvider>
+      <ToastProvider>
+        <FeddaApp />
+      </ToastProvider>
+    </ComfyExecutionProvider>
   );
 }

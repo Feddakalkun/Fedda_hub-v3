@@ -15,9 +15,16 @@ class WorkflowService:
             return json.load(f)
 
     def get_workflow_path(self, filename: str) -> str:
+        # 1. Try direct path from workflows_dir
+        direct_path = os.path.join(self.workflows_dir, filename)
+        if os.path.exists(direct_path):
+            return direct_path
+        
+        # 2. Recursive search for just the basename if direct fails
+        basename = os.path.basename(filename)
         for root, _, files in os.walk(self.workflows_dir):
-            if filename in files:
-                return os.path.join(root, filename)
+            if basename in files:
+                return os.path.join(root, basename)
         return ""
 
     def is_api_format(self, data: dict) -> bool:
@@ -93,26 +100,55 @@ class WorkflowService:
 
         # 1. Inject parameters
         is_api = self.is_api_format(workflow)
+        print(f"[WorkflowService] Preparing payload. is_api={is_api}")
 
         for param_key, param_value in user_params.items():
             if param_key in mapping["inputs"]:
                 input_info = mapping["inputs"][param_key]
                 node_id = str(input_info["node_id"])
                 
+                print(f"  > Injecting '{param_key}' -> Node {node_id} (value: {param_value})")
+
+                if input_info.get("type") == "loras" and isinstance(param_value, list):
+                    # Special handling for Power Lora Loader (rgthree)
+                    if node_id in workflow:
+                        input_node = workflow[node_id]
+                        if "inputs" not in input_node: input_node["inputs"] = {}
+                        
+                        # rgthree Power Lora Loader uses: inputs -> "lora_1": {"on": true, "lora": "...", "strength": 1.0, "clip_strength": 1.0}
+                        # Limit to first 5 which is what is usually in the UI
+                        for i, lora_data in enumerate(param_value[:5]):
+                            input_node["inputs"][f"lora_{i+1}"] = {
+                                "on": True,
+                                "lora": lora_data.get("name", ""),
+                                "strength": float(lora_data.get("strength", 1.0)),
+                                "clip_strength": float(lora_data.get("strength", 1.0))
+                            }
+                        continue
+
                 if is_api:
                     # API Format Injection
                     input_key = input_info.get("input_key") or param_key
-                    if node_id in workflow and "inputs" in workflow[node_id]:
+                    if node_id in workflow:
+                        if "inputs" not in workflow[node_id]:
+                            workflow[node_id]["inputs"] = {}
                         workflow[node_id]["inputs"][input_key] = param_value
+                    else:
+                        print(f"    [WARN] Node {node_id} NOT FOUND in workflow!")
                 else:
                     # UI Format Injection
                     w_idx = input_info.get("widget_index")
+                    found = False
                     for node in workflow.get("nodes", []):
                         if str(node["id"]) == node_id:
+                            found = True
                             if "widgets_values" in node and w_idx is not None:
                                 if w_idx < len(node["widgets_values"]):
                                     node["widgets_values"][w_idx] = param_value
+                                    print(f"    [OK] Updated widget[{w_idx}]")
                             break
+                    if not found:
+                        print(f"    [WARN] Node {node_id} NOT FOUND in UI nodes!")
         
         # 2. Convert to final API format for ComfyUI if needed
         if not is_api:
@@ -120,4 +156,7 @@ class WorkflowService:
             
         return workflow
 
-workflow_service = WorkflowService(workflows_dir="h:/Feddafront-050426/comfyuifeddafront/backend/workflows")
+# Initialize service with dynamic path relative to this file
+script_dir = os.path.dirname(os.path.abspath(__file__))
+default_workflows = os.path.join(script_dir, "workflows")
+workflow_service = WorkflowService(workflows_dir=default_workflows)

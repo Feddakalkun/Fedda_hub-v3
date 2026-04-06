@@ -1,18 +1,12 @@
 // ComfyUI API Service
 import { COMFY_API, BACKEND_API } from '../config/api';
-import type { ComfyPrompt, ComfyQueueItem, ComfyHistoryItem } from '../types/comfy';
+import type { ComfyHistoryItem } from '../types/comfy';
 import { addUiLog } from './uiLogger';
-import { assertPreviewAllowed } from '../config/preview';
 
 class ComfyUIService {
     public clientId: string;
     private ws: WebSocket | null = null;
-    private wsReady: boolean = false;
-    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private reconnectAttempts: number = 0;
-    private objectInfoCache: Record<string, any> | null = null;
-    private objectInfoCacheAt = 0;
-    private runpodDirectDisabled = false;
 
     private _callbacks: {
         onExecuting?: (nodeId: string | null) => void;
@@ -57,9 +51,8 @@ class ComfyUIService {
         this.ws = new WebSocket(url);
 
         this.ws.onopen = () => {
-            this.wsReady = true;
             this.reconnectAttempts = 0;
-            addUiLog('ComfyUI WebSocket Connected', 'success');
+            addUiLog('success', 'comfy', 'WebSocket Connected');
         };
 
         this.ws.onmessage = (event) => {
@@ -98,12 +91,11 @@ class ComfyUIService {
         };
 
         this.ws.onclose = () => {
-            this.wsReady = false;
             this.ws = null;
             if (this._callbacks) {
                 this.reconnectAttempts++;
                 const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
-                this.reconnectTimer = setTimeout(() => this._connect(), delay);
+                setTimeout(() => this._connect(), delay);
             }
         };
 
@@ -112,7 +104,7 @@ class ComfyUIService {
         };
     }
 
-    public async queuePrompt(workflow: ComfyPrompt): Promise<{ prompt_id: string }> {
+    public async queuePrompt(workflow: Record<string, unknown>): Promise<{ prompt_id: string }> {
         const resp = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.PROMPT}`, {
             method: 'POST',
             body: JSON.stringify({ prompt: workflow, client_id: this.clientId }),
@@ -120,6 +112,15 @@ class ComfyUIService {
         });
         if (!resp.ok) throw new Error(`Queue failed: ${resp.statusText}`);
         return resp.json();
+    }
+
+    public async isAlive(): Promise<boolean> {
+        try {
+            const resp = await fetch(`${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.SYSTEM_STATS}`, { cache: 'no-store' });
+            return resp.ok;
+        } catch {
+            return false;
+        }
     }
 
     public async interrupt(): Promise<void> {

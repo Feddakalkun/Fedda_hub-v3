@@ -18,6 +18,7 @@ export const COMFY_API = {
         UPLOAD_IMAGE: '/upload/image',
         SYSTEM_STATS: '/system_stats',
         OBJECT_INFO: '/object_info',
+        INTERRUPT: '/interrupt',
     },
 
     WS_URL: WS_HOST,
@@ -55,6 +56,7 @@ export const BACKEND_API = {
         WORKFLOW_LIST: '/api/workflow/list',
         GENERATE: '/api/generate',
         GENERATE_STATUS: '/api/generate/status',
+        LORA_LIST: '/api/lora/list',
     },
 };
 

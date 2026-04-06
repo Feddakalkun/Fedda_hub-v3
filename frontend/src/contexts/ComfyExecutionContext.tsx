@@ -131,7 +131,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
     // Connect WebSocket once on mount
     useEffect(() => {
         const disconnect = comfyService.connectWebSocket({
-            onExecuting: (nodeId) => {
+            onExecuting: (nodeId: string | null) => {
                 // Ignore WS messages after cancel
                 if (cancelledRef.current) return;
 
@@ -169,12 +169,12 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 setProgress(0);
             },
 
-            onProgress: (_node, value, max) => {
+            onProgress: (_node: string, value: number, max: number) => {
                 if (cancelledRef.current) return;
                 setProgress(Math.round((value / max) * 100));
             },
 
-            onCompleted: (promptId, output) => {
+            onCompleted: (promptId: string, output: Record<string, any>) => {
                 if (cancelledRef.current) return;
                 activePromptIdRef.current = promptId;
                 setLastCompletedPromptId(promptId);
@@ -199,7 +199,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 setOutputReadyCount(prev => prev + 1);
             },
 
-            onExecutionError: (errData) => {
+            onExecutionError: (errData: Record<string, any>) => {
                 if (cancelledRef.current) return;
                 const message =
                     errData?.exception_message ||
@@ -219,7 +219,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 setIsDownloaderNode(false);
             },
 
-            onPreview: (blobUrl) => {
+            onPreview: (blobUrl: string) => {
                 if (cancelledRef.current) return;
                 // Revoke previous blob URL to prevent memory leaks
                 if (prevPreviewRef.current) URL.revokeObjectURL(prevPreviewRef.current);
@@ -227,7 +227,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 setPreviewUrl(blobUrl);
             },
 
-            onStatus: (data) => {
+            onStatus: (data: Record<string, any>) => {
                 // Check if queue empty while we were executing
                 if (data?.exec_info?.queue_remaining === 0 && stateRef.current === 'executing') {
                     transitionToDone();

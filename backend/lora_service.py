@@ -26,14 +26,16 @@ PACKS: Dict[str, Dict[str, str]] = {
         "img_subfolder":  "ZIT_Images",
     },
     "flux2klein": {
-        "hf_repo":  "pmczip/FLUX.2-klein-9B_Models",
-        "hf_type":  "model",
-        "dest":     "flux2klein",
+        "hf_repo":       "pmczip/FLUX.2-klein-9B_Models",
+        "hf_type":       "model",
+        "dest":          "flux2klein",
+        "img_subfolder": "klein_images",
     },
     "flux1dev": {
-        "hf_repo":  "pmczip/FLUX.1-dev_Models",
-        "hf_type":  "model",
-        "dest":     "flux1dev",
+        "hf_repo":       "pmczip/FLUX.1-dev_Models",
+        "hf_type":       "model",
+        "dest":          "flux1dev",
+        "img_subfolder": "Flux1D_Images",
     },
     "sd15": {
         "hf_repo":  "pmczip/SD1.5_LoRa_Models",
@@ -41,14 +43,16 @@ PACKS: Dict[str, Dict[str, str]] = {
         "dest":     "sd15",
     },
     "sd15_lycoris": {
-        "hf_repo":  "pmczip/SD1.5_LyCORIS_Models",
-        "hf_type":  "model",
-        "dest":     "sd15-lycoris",
+        "hf_repo":       "pmczip/SD1.5_LyCORIS_Models",
+        "hf_type":       "model",
+        "dest":          "sd15-lycoris",
+        "img_subfolder": "LYCORIS_Images",
     },
     "sdxl": {
-        "hf_repo":  "pmczip/SDXL_Models",
-        "hf_type":  "model",
-        "dest":     "sdxl",
+        "hf_repo":       "pmczip/SDXL_Models",
+        "hf_type":       "model",
+        "dest":          "sdxl",
+        "img_subfolder": "SDXL_Images",
     },
 }
 

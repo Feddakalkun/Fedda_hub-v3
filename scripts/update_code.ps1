@@ -114,7 +114,6 @@ $LegacyFolders = @(
     "ComfyUI\custom_nodes\ComfyUI-FlowBuilder-Nodes",
     "ComfyUI\custom_nodes\ComfyUI-Aspire",
     "ComfyUI\custom_nodes\ComfyUI-AnimateDiff-Evolved",
-    "ComfyUI\custom_nodes\mikey_nodes",
     "ComfyUI\custom_nodes\joycaption_comfyui",
     "ComfyUI\custom_nodes\masquerade-nodes-comfyui",
     "ComfyUI\custom_nodes\chibi",

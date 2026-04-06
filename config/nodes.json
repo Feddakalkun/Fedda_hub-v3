@@ -142,5 +142,17 @@
     "url": "https://github.com/SeargeDP/ComfyUI_Searge_LLM.git",
     "folder": "ComfyUI_Searge_LLM",
     "note": "LLM integrations for prompts"
+  },
+  {
+    "name": "mikey_nodes",
+    "url": "https://github.com/bash-j/mikey_nodes.git",
+    "folder": "mikey_nodes",
+    "note": "Mikey nodes — text, style, and utility nodes"
+  },
+  {
+    "name": "ComfyUI-Image-Selector",
+    "url": "https://github.com/SLAPaper/ComfyUI-Image-Selector.git",
+    "folder": "ComfyUI-Image-Selector",
+    "note": "Image selector node — pick one image from a batch"
   }
 ]

@@ -74,82 +74,9 @@ try {
 }
 
 # ============================================================================
-# 3. CLEANUP LEGACY FILES (Optional but fast)
-# ============================================================================
-$LegacyFiles = @(
-    "UPDATE_APP.bat",
-    "check_vibevoice_files.py",
-    "cleanup_vibevoice.py",
-    "create_reference_audio.py",
-    "debug-comfyui.bat",
-    "debug_streamer.py",
-    "debug_vibevoice.py",
-    "fix_vibevoice_deps.bat",
-    "fix_gpu.bat",
-    "download_premium_loras.bat",
-    "reinstall_vibevoice_deps.bat",
-    "repair_environment.bat",
-    "setup_tts_audio.py",
-    "test_load_model.py",
-    "update_dependencies.bat",
-    "VOICE_FEATURES_README.md",
-    "requirements-lock.txt",
-    "LOG.md",
-    "install-fast.bat",
-    "run-fast.bat",
-    "UPDATE_APP_FULL.bat"
-)
-
-$LegacyFolders = @(
-    "assets\loading-screen",
-    "assets\workflows",
-    "ComfyUI\custom_nodes\ComfyUI_Searge_LLM",
-    "ComfyUI\custom_nodes\SeargeSDXL",
-    "ComfyUI\custom_nodes\ComfyUI-Custom-Nodes",
-    "ComfyUI\custom_nodes\ComfyUI-Workspace-Manager",
-    "ComfyUI\custom_nodes\ComfyUI-AutoConnect",
-    "ComfyUI\custom_nodes\ComfyUI-Auto-Nodes-Layout",
-    "ComfyUI\custom_nodes\ComfyUI-Align",
-    "ComfyUI\custom_nodes\ComfyUI-Dev-Utils",
-    "ComfyUI\custom_nodes\ComfyUI-FlowBuilder-Nodes",
-    "ComfyUI\custom_nodes\ComfyUI-Aspire",
-    "ComfyUI\custom_nodes\ComfyUI-AnimateDiff-Evolved",
-    "ComfyUI\custom_nodes\joycaption_comfyui",
-    "ComfyUI\custom_nodes\masquerade-nodes-comfyui",
-    "ComfyUI\custom_nodes\chibi",
-    "ComfyUI\custom_nodes\ComfyUI-Timer-Nodes",
-    "ComfyUI\custom_nodes\ComfyUI-VoxCPM",
-    "ComfyUI\custom_nodes\ComfyUI_Fill-Nodes",
-    "ComfyUI\custom_nodes\Derfuu_ComfyUI_ModdedNodes",
-    "ComfyUI\custom_nodes\Bjornulf_custom_nodes"
-)
-
-$CleanedCount = 0
-foreach ($file in $LegacyFiles) {
-    $path = Join-Path $RootPath $file
-    if (Test-Path $path) {
-        Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
-        $CleanedCount++
-    }
-}
-
-foreach ($folder in $LegacyFolders) {
-    $path = Join-Path $RootPath $folder
-    if (Test-Path $path) {
-        Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-        $CleanedCount++
-    }
-}
-
-# ============================================================================
 # DONE
 # ============================================================================
 if (-not $SilentMode) {
-    if ($CleanedCount -gt 0) {
-        Write-Host "  [OK] Cleaned up $CleanedCount legacy items." -ForegroundColor Green
-    } else {
-        Write-Host "  [OK] No legacy files to clean." -ForegroundColor Green
-    }
     Write-Host "`n===================================================" -ForegroundColor Green
     Write-Host "  UPDATE COMPLETE" -ForegroundColor Green
     Write-Host "===================================================" -ForegroundColor Green

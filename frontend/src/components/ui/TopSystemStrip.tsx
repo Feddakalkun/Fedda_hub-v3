@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BrainCircuit, Loader2, Trash2, Zap } from 'lucide-react';
+import { Activity, BrainCircuit, Loader2, Trash2, Zap, DownloadCloud, Play } from 'lucide-react';
 import { useComfyStatus } from '../../hooks/useComfyStatus';
 import { useOllamaStatus } from '../../hooks/useOllamaStatus';
+import { useComfyExecution } from '../../contexts/ComfyExecutionContext';
 import { COMFY_API } from '../../config/api';
 
 export const TopSystemStrip = () => {
   const comfy = useComfyStatus(3000);
   const ollama = useOllamaStatus();
+  const { state, currentNodeName, progress, overallProgress, isDownloaderNode } = useComfyExecution();
+  
   const [comfyStats, setComfyStats] = useState<any>(null);
   const [gpuStats, setGpuStats] = useState<any>(null);
   const [purging, setPurging] = useState(false);
@@ -78,6 +81,42 @@ export const TopSystemStrip = () => {
 
   return (
     <div className="hidden xl:flex items-center gap-2">
+
+      {/* Execution Progress Bar */}
+      {state === 'executing' && (
+        <div className="h-8 px-3 rounded-lg border border-cyan-500/30 bg-cyan-500/10 flex items-center gap-2.5 min-w-[280px]">
+           {isDownloaderNode ? (
+             <DownloadCloud className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+           ) : (
+             <Play className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+           )}
+           
+           <div className="flex-1 flex flex-col justify-center">
+             <div className="flex justify-between items-center mb-1">
+               <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-300 w-32 truncate" title={currentNodeName}>
+                 {currentNodeName || 'Running...'}
+               </span>
+               <span className="text-[9px] font-mono text-cyan-400/80">
+                 {progress}%
+               </span>
+             </div>
+             
+             {/* Progress bars (Dual: Node Progress vs Overall Progress) */}
+             <div className="w-full h-1 bg-black/40 rounded-full overflow-hidden relative">
+                {/* Overall workflow progress (Background low opacity) */}
+                <div 
+                   className="absolute top-0 left-0 h-full bg-cyan-700/50 transition-all duration-300"
+                   style={{ width: `${overallProgress}%` }}
+                />
+                {/* Current Node Progress (Foreground bright) */}
+                <div 
+                   className="absolute top-0 left-0 h-full bg-cyan-400 transition-all duration-300 shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+                   style={{ width: `${progress}%` }}
+                />
+             </div>
+           </div>
+        </div>
+      )}
 
       {/* GPU VRAM pill */}
       <div className="h-8 px-3 rounded-lg border border-white/10 bg-white/5 flex items-center gap-2 text-xs">

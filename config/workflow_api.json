@@ -1,54 +1,54 @@
 {
   "z-image": {
     "name": "Z-Image Turbo (Classic)",
-    "filename": "Z IMAGE 6.json",
-    "description": "Standard high-speed generation using Z-Image Turbo (SD3 based).",
+    "filename": "z-image/z-image-txt2img.json",
+    "description": "Standard high-speed generation using Z-Image Turbo.",
     "inputs": {
       "prompt": {
-        "node_id": "113",
-        "widget_index": 0,
+        "node_id": "33",
+        "input_key": "string",
         "type": "string",
         "label": "Positive Prompt"
       },
       "negative": {
-        "node_id": "38",
-        "widget_index": 0,
+        "node_id": "34",
+        "input_key": "string",
         "type": "string",
         "label": "Negative Prompt"
       },
       "width": {
-        "node_id": "87",
-        "widget_index": 0,
+        "node_id": "30",
+        "input_key": "width",
         "type": "number",
         "label": "Width"
       },
       "height": {
-        "node_id": "87",
-        "widget_index": 1,
+        "node_id": "30",
+        "input_key": "height",
         "type": "number",
         "label": "Height"
       },
       "seed": {
-        "node_id": "169",
-        "widget_index": 0,
+        "node_id": "3",
+        "input_key": "seed",
         "type": "number",
         "label": "Seed"
       },
       "steps": {
-        "node_id": "169",
-        "widget_index": 2,
+        "node_id": "3",
+        "input_key": "steps",
         "type": "number",
         "label": "Steps"
       },
       "cfg": {
-        "node_id": "169",
-        "widget_index": 3,
+        "node_id": "3",
+        "input_key": "cfg",
         "type": "number",
         "label": "CFG Scale"
       },
       "denoise": {
-        "node_id": "169",
-        "widget_index": 6,
+        "node_id": "3",
+        "input_key": "denoise",
         "type": "number",
         "label": "Denoise"
       }

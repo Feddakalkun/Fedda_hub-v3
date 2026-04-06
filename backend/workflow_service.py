@@ -91,24 +91,33 @@ class WorkflowService:
         with open(path, "r", encoding="utf-8") as f:
             workflow = json.load(f)
 
-        # 1. Update UI JSON widgets first (positional)
+        # 1. Inject parameters
+        is_api = self.is_api_format(workflow)
+
         for param_key, param_value in user_params.items():
             if param_key in mapping["inputs"]:
                 input_info = mapping["inputs"][param_key]
                 node_id = str(input_info["node_id"])
-                w_idx = input_info.get("widget_index")
                 
-                for node in workflow.get("nodes", []):
-                    if str(node["id"]) == node_id:
-                        if "widgets_values" in node and w_idx is not None:
-                            if w_idx < len(node["widgets_values"]):
-                                node["widgets_values"][w_idx] = param_value
-                        break
+                if is_api:
+                    # API Format Injection
+                    input_key = input_info.get("input_key") or param_key
+                    if node_id in workflow and "inputs" in workflow[node_id]:
+                        workflow[node_id]["inputs"][input_key] = param_value
+                else:
+                    # UI Format Injection
+                    w_idx = input_info.get("widget_index")
+                    for node in workflow.get("nodes", []):
+                        if str(node["id"]) == node_id:
+                            if "widgets_values" in node and w_idx is not None:
+                                if w_idx < len(node["widgets_values"]):
+                                    node["widgets_values"][w_idx] = param_value
+                            break
         
-        # 2. Convert to final API format for ComfyUI
-        if not self.is_api_format(workflow):
+        # 2. Convert to final API format for ComfyUI if needed
+        if not is_api:
             workflow = self.convert_ui_to_api(workflow)
             
         return workflow
 
-workflow_service = WorkflowService(workflows_dir="h:/Feddafront-050426/1-WORKFLOWS")
+workflow_service = WorkflowService(workflows_dir="h:/Feddafront-050426/comfyuifeddafront/backend/workflows")

@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Sparkles, Download, Maximize2, Loader2, Image as ImageIcon,
-  Settings2, Sliders, Hash, Layers, RefreshCw, Plus, X, Box
+  Settings2, Sliders, Hash, Layers, RefreshCw, Plus, X, Box, DownloadCloud
 } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
 import { BACKEND_API } from '../../config/api';
+import { useComfyExecution } from '../../contexts/ComfyExecutionContext';
 
 interface GenerationStatus {
   id: string;
@@ -37,7 +38,34 @@ export const ZImageTxt2Img = () => {
   const [loras, setLoras] = useState<LoraState[]>([]);
   
   const { toast } = useToast();
-  const statusInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Use global execution context instead of manual polling!
+  const { state: execState, isDownloaderNode, progress: execProgress, lastOutputImages, lastCompletedPromptId } = useComfyExecution();
+  
+  // Watch for completed images from the global websocket
+  useEffect(() => {
+    if (lastCompletedPromptId && currentJob?.id === lastCompletedPromptId) {
+       if (lastOutputImages && lastOutputImages.length > 0) {
+          const img = lastOutputImages[lastOutputImages.length - 1];
+          const imageUrl = `/comfy/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}`;
+          setCurrentJob({ id: lastCompletedPromptId, status: 'completed', image: imageUrl });
+          setHistory(prev => [imageUrl, ...prev.slice(0, 19)]);
+          setIsGenerating(false);
+          toast('Synthesis complete!', 'success');
+       }
+    }
+  }, [lastOutputImages, lastCompletedPromptId]);
+
+  // Sync isGenerating with global execution state
+  useEffect(() => {
+    if (currentJob?.status === 'pending' && execState === 'executing') {
+       setCurrentJob(prev => prev ? { ...prev, status: 'running' } : null);
+    }
+    if (execState === 'error') {
+       setIsGenerating(false);
+       setCurrentJob(null);
+    }
+  }, [execState]);
 
   const addLora = () => {
     setLoras([...loras, { name: 'new_lora', weight: 1.0 }]);
@@ -57,15 +85,15 @@ export const ZImageTxt2Img = () => {
     if (!prompt.trim() || isGenerating) return;
 
     setIsGenerating(true);
+    // Setting ID to pending. It will be updated when the backend returns the real prompt_id
     setCurrentJob({ id: 'local-init', status: 'pending' });
 
     try {
-      // In the future this will use the Z-Image API format
       const response = await fetch(BACKEND_API.ENDPOINTS.GENERATE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          workflow_id: 'z-image', // Fallback until user provides actual workflow
+          workflow_id: 'z-image',
           params: {
             prompt,
             negative: negativePrompt,
@@ -82,7 +110,8 @@ export const ZImageTxt2Img = () => {
       const data = await response.json();
       if (data.success) {
         toast('Warming up models...', 'success');
-        startPolling(data.prompt_id);
+        setCurrentJob({ id: data.prompt_id, status: 'pending' });
+        // No more polling! The WebSocket handles the rest automatically.
       } else {
         throw new Error(data.detail || 'Failed to start generation');
       }
@@ -93,38 +122,6 @@ export const ZImageTxt2Img = () => {
       setIsGenerating(false);
     }
   };
-
-  const startPolling = (promptId: string) => {
-    if (statusInterval.current) clearInterval(statusInterval.current);
-
-    statusInterval.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/generate/status/${promptId}`);
-        const data = await res.json();
-
-        if (data.success) {
-          if (data.status === 'completed' && data.images?.length > 0) {
-            const imageUrl = `/comfy/view?filename=${data.images[0].filename}&subfolder=${data.images[0].subfolder}&type=${data.images[0].type}`;
-            setCurrentJob({ id: promptId, status: 'completed', image: imageUrl });
-            setHistory(prev => [imageUrl, ...prev.slice(0, 19)]);
-            setIsGenerating(false);
-            toast('Generation complete!', 'success');
-            if (statusInterval.current) clearInterval(statusInterval.current);
-          } else if (data.status === 'running') {
-            setCurrentJob(prev => prev ? { ...prev, status: 'running' } : null);
-          }
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 2000);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (statusInterval.current) clearInterval(statusInterval.current);
-    };
-  }, []);
 
   return (
     <div className="flex h-full bg-[#050505]">
@@ -381,22 +378,42 @@ export const ZImageTxt2Img = () => {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center text-center animate-pulse">
+            <div className="flex flex-col items-center justify-center text-center">
               <div className="relative w-32 h-32 mb-8">
-                <div className="absolute inset-0 bg-emerald-500/10 rounded-3xl blur-2xl" />
-                <div className="relative w-full h-full rounded-3xl border border-emerald-500/20 bg-emerald-500/5 flex items-center justify-center backdrop-blur-sm">
+                <div className={`absolute inset-0 rounded-3xl blur-2xl transition-colors duration-1000 ${isGenerating ? 'bg-cyan-500/20' : 'bg-emerald-500/10'}`} />
+                <div className={`relative w-full h-full rounded-3xl border flex items-center justify-center backdrop-blur-sm transition-all duration-500 ${
+                  isGenerating ? 'border-cyan-500/30 bg-cyan-500/5' : 'border-emerald-500/20 bg-emerald-500/5'
+                }`}>
                   {isGenerating ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-emerald-400" />
+                    isDownloaderNode ? (
+                      <DownloadCloud className="w-10 h-10 animate-bounce text-cyan-400" />
+                    ) : (
+                      <Loader2 className="w-10 h-10 animate-spin text-cyan-400" />
+                    )
                   ) : (
                     <ImageIcon className="w-10 h-10 text-emerald-400/50" />
                   )}
                 </div>
+                
+                {isGenerating && execProgress > 0 && (
+                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-cyan-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]">
+                     {execProgress}%
+                   </div>
+                )}
               </div>
-              <h3 className="text-xl font-bold bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent">
-                {isGenerating ? 'Synthesizing Z-Matrix' : 'Studio Canvas Ready'}
+              
+              <h3 className={`text-xl font-bold bg-gradient-to-r bg-clip-text text-transparent transition-all duration-500 ${
+                isGenerating ? 'from-cyan-300 to-cyan-600' : 'from-white to-white/40'
+              }`}>
+                {isGenerating 
+                  ? (isDownloaderNode ? 'Fetching Assets' : 'Synthesizing Z-Matrix') 
+                  : 'Studio Canvas Ready'}
               </h3>
-              <p className="text-sm text-slate-500 mt-2 font-mono tracking-widest max-w-[280px]">
-                {isGenerating ? 'PROCESSING NODES...' : 'CONFIGURE PARAMS & INITIALIZE'}
+              
+              <p className="text-sm text-slate-500 mt-2 font-mono tracking-widest max-w-[280px] uppercase">
+                {isGenerating 
+                  ? (isDownloaderNode ? 'Downloading weights...' : 'Processing nodes...') 
+                  : 'Configure params & Initialize'}
               </p>
             </div>
           )}

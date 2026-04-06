@@ -110,21 +110,55 @@ class WorkflowService:
                 print(f"  > Injecting '{param_key}' -> Node {node_id} (value: {param_value})")
 
                 if input_info.get("type") == "loras" and isinstance(param_value, list):
-                    # Special handling for Power Lora Loader (rgthree)
-                    if node_id in workflow:
-                        input_node = workflow[node_id]
-                        if "inputs" not in input_node: input_node["inputs"] = {}
-                        
-                        # rgthree Power Lora Loader uses: inputs -> "lora_1": {"on": true, "lora": "...", "strength": 1.0, "clip_strength": 1.0}
-                        # Limit to first 5 which is what is usually in the UI
-                        for i, lora_data in enumerate(param_value[:5]):
-                            input_node["inputs"][f"lora_{i+1}"] = {
-                                "on": True,
-                                "lora": lora_data.get("name", ""),
-                                "strength": float(lora_data.get("strength", 1.0)),
-                                "clip_strength": float(lora_data.get("strength", 1.0))
-                            }
+                    # Dynamic LoRA chain: replace the placeholder node with a chain of
+                    # standard LoraLoader nodes (one per LoRA), then rewire downstream refs.
+                    if node_id not in workflow:
+                        print(f"  [WARN] LoRA placeholder node {node_id} not found")
                         continue
+
+                    placeholder = workflow[node_id]
+                    model_source = placeholder["inputs"].get("model", ["16", 0])
+                    clip_source  = placeholder["inputs"].get("clip",  ["18", 0])
+
+                    del workflow[node_id]
+
+                    active_loras = [l for l in param_value if l.get("name")]
+
+                    if not active_loras:
+                        # No LoRAs — rewire every reference to the placeholder directly
+                        for nid, node in workflow.items():
+                            for key, val in list(node.get("inputs", {}).items()):
+                                if isinstance(val, list) and len(val) == 2 and str(val[0]) == node_id:
+                                    node["inputs"][key] = model_source if val[1] == 0 else clip_source
+                    else:
+                        curr_model, curr_clip = model_source, clip_source
+                        last_id = None
+                        for i, lora_data in enumerate(active_loras[:5]):
+                            lid = f"_lora_{i}"
+                            workflow[lid] = {
+                                "inputs": {
+                                    "lora_name":      lora_data["name"],
+                                    "strength_model": float(lora_data.get("strength", 1.0)),
+                                    "strength_clip":  float(lora_data.get("strength", 1.0)),
+                                    "model": curr_model,
+                                    "clip":  curr_clip,
+                                },
+                                "class_type": "LoraLoader",
+                            }
+                            curr_model = [lid, 0]
+                            curr_clip  = [lid, 1]
+                            last_id    = lid
+
+                        # Rewire every reference that pointed to the old placeholder
+                        for nid, node in workflow.items():
+                            if nid.startswith("_lora_"):
+                                continue
+                            for key, val in list(node.get("inputs", {}).items()):
+                                if isinstance(val, list) and len(val) == 2 and str(val[0]) == node_id:
+                                    node["inputs"][key] = [last_id, val[1]]
+
+                        print(f"  [OK] Injected {len(active_loras)} LoRA(s): {[l['name'] for l in active_loras]}")
+                    continue
 
                 if is_api:
                     # API Format Injection

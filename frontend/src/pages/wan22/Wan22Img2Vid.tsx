@@ -23,25 +23,32 @@ export const Wan22Img2Vid = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { state: execState, lastOutputVideos, lastCompletedPromptId } = useComfyExecution();
+  const { state: execState, lastOutputVideos } = useComfyExecution();
 
-  // Video complete
+  // Accumulate videos while generating
+  const prevVideoCountRef = useRef(0);
   useEffect(() => {
     if (!pendingPromptId || !lastOutputVideos?.length) return;
-    if (lastCompletedPromptId !== pendingPromptId) return;
+    const newVids = lastOutputVideos.slice(prevVideoCountRef.current);
+    if (!newVids.length) return;
+    prevVideoCountRef.current = lastOutputVideos.length;
+    newVids.forEach(vid => {
+      const url = `/comfy/view?filename=${encodeURIComponent(vid.filename)}&subfolder=${encodeURIComponent(vid.subfolder)}&type=${vid.type}`;
+      setHistory(prev => [{ url, filename: vid.filename }, ...prev.slice(0, 19)]);
+    });
+  }, [lastOutputVideos, pendingPromptId]);
 
-    const vid = lastOutputVideos[lastOutputVideos.length - 1];
-    const url = `/comfy/view?filename=${encodeURIComponent(vid.filename)}&subfolder=${encodeURIComponent(vid.subfolder)}&type=${vid.type}`;
-    setHistory(prev => [{ url, filename: vid.filename }, ...prev.slice(0, 19)]);
-    setIsGenerating(false);
-    setPendingPromptId(null);
-    setGalleryOpen(true);
-    toast('Video ready — check the gallery', 'success');
-  }, [lastOutputVideos, lastCompletedPromptId, pendingPromptId, toast]);
-
+  // Complete when full workflow is done
   useEffect(() => {
+    if (!pendingPromptId) return;
+    if (execState === 'done') {
+      setIsGenerating(false);
+      setPendingPromptId(null);
+      setGalleryOpen(true);
+      toast('Video ready — check the gallery', 'success');
+    }
     if (execState === 'error') { setIsGenerating(false); setPendingPromptId(null); }
-  }, [execState]);
+  }, [execState, pendingPromptId, toast]);
 
   const handleUpload = async (file: File) => {
     setUploading(true);

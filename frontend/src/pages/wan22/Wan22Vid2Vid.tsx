@@ -96,7 +96,6 @@ export const Wan22Vid2Vid = () => {
   const {
     state: execState,
     lastOutputVideos,
-    lastCompletedPromptId,
     outputReadyCount,
     registerNodeMap,
   } = useComfyExecution();
@@ -122,18 +121,19 @@ export const Wan22Vid2Vid = () => {
     setHistory(prev => [...urls, ...prev].slice(0, 40));
   }, [outputReadyCount, lastOutputVideos, isGenerating, pendingPromptId]);
 
-  // ── Detect completion: prompt id matches + we have ≥4 videos ─────────────
+  // ── Detect completion via execState 'done' (full workflow finished) ─────────
   useEffect(() => {
     if (!pendingPromptId) return;
-    if (lastCompletedPromptId !== pendingPromptId) return;
-    setIsGenerating(false);
-    setPendingPromptId(null);
-    toast(`Done — ${sessionRef.current.length} video${sessionRef.current.length !== 1 ? 's' : ''} generated`, 'success');
-  }, [lastCompletedPromptId, pendingPromptId, toast]);
-
-  useEffect(() => {
-    if (execState === 'error') { setIsGenerating(false); setPendingPromptId(null); }
-  }, [execState]);
+    if (execState === 'done') {
+      setIsGenerating(false);
+      setPendingPromptId(null);
+      toast(`Done — ${sessionRef.current.length} video${sessionRef.current.length !== 1 ? 's' : ''} generated`, 'success');
+    }
+    if (execState === 'error') {
+      setIsGenerating(false);
+      setPendingPromptId(null);
+    }
+  }, [execState, pendingPromptId, toast]);
 
   // ── Upload ────────────────────────────────────────────────────────────────
   const handleUpload = async (file: File) => {

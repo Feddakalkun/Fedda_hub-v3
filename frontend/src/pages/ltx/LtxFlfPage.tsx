@@ -92,7 +92,6 @@ export const LtxFlfPage = () => {
   const {
     state: execState,
     lastOutputVideos,
-    lastCompletedPromptId,
     outputReadyCount,
     registerNodeMap,
   } = useComfyExecution();
@@ -135,18 +134,21 @@ export const LtxFlfPage = () => {
     setHistory(prev => [...urls, ...prev].slice(0, 40));
   }, [outputReadyCount, lastOutputVideos, isGenerating, pendingPromptId]);
 
-  // ── Completion ──────────────────────────────────────────────────────────────
+  // ── Completion: use execState 'done' (fires when ALL nodes finish) ──────────
+  // Don't use lastCompletedPromptId — it fires on every node, causing premature
+  // completion before VHS output nodes have had a chance to emit their videos.
   useEffect(() => {
     if (!pendingPromptId) return;
-    if (lastCompletedPromptId !== pendingPromptId) return;
-    setIsGenerating(false);
-    setPendingPromptId(null);
-    toast('Video ready', 'success');
-  }, [lastCompletedPromptId, pendingPromptId, toast]);
-
-  useEffect(() => {
-    if (execState === 'error') { setIsGenerating(false); setPendingPromptId(null); }
-  }, [execState]);
+    if (execState === 'done') {
+      setIsGenerating(false);
+      setPendingPromptId(null);
+      toast('Video ready', 'success');
+    }
+    if (execState === 'error') {
+      setIsGenerating(false);
+      setPendingPromptId(null);
+    }
+  }, [execState, pendingPromptId, toast]);
 
   // ── Generate ────────────────────────────────────────────────────────────────
   const handleGenerate = async () => {

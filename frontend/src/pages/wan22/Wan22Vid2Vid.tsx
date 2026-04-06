@@ -61,6 +61,9 @@ export const Wan22Vid2Vid = () => {
   const [prompt4, setPrompt4] = usePersistentState('wan22v2v_p4', '');
   const [seed, setSeed]       = usePersistentState('wan22v2v_seed', -1);
   const [slowMotion, setSlowMotion] = usePersistentState('wan22v2v_slowmo', true);
+  const [aspectRatio, setAspectRatio] = usePersistentState('wan22v2v_ar', '16:9');
+  const [direction, setDirection]     = usePersistentState('wan22v2v_dir', 'Vertical');
+  const [cropMethod, setCropMethod]   = usePersistentState('wan22v2v_crop', 'Stretch');
 
   // Which scene prompt panels are expanded
   const [expanded, setExpanded] = useState<boolean[]>([true, true, true, true]);
@@ -227,6 +230,9 @@ export const Wan22Vid2Vid = () => {
             slow_motion_3: slowMotion,
             slow_motion_4: slowMotion,
             slow_motion_5: slowMotion,
+            aspect_ratio: aspectRatio,
+            direction: direction,
+            crop_method: cropMethod,
           },
         }),
       });
@@ -346,6 +352,58 @@ export const Wan22Vid2Vid = () => {
           )}
           <input ref={fileInputRef} type="file" accept="video/*" className="hidden"
             onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+
+          <div className="h-px bg-white/5" />
+
+          {/* ── RESIZE OPTIONS ── */}
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Output Resize</p>
+
+            {/* Aspect Ratio */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Aspect Ratio</p>
+              <div className="flex flex-wrap gap-1.5">
+                {['1:1','4:3','3:4','16:9','9:16','21:9','3:2','2:3'].map(ar => (
+                  <button key={ar} onClick={() => setAspectRatio(ar)}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                      aspectRatio === ar
+                        ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                        : 'bg-white/[0.03] border border-white/5 text-white/30 hover:text-white/50 hover:bg-white/[0.06]'
+                    }`}>{ar}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Direction + Crop Method side by side */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Direction</p>
+                <div className="flex gap-1.5">
+                  {['Horizontal','Vertical'].map(d => (
+                    <button key={d} onClick={() => setDirection(d)}
+                      className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                        direction === d
+                          ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                          : 'bg-white/[0.03] border border-white/5 text-white/30 hover:text-white/50'
+                      }`}>{d === 'Horizontal' ? 'H' : 'V'}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Crop Method</p>
+                <div className="flex gap-1.5">
+                  {['Stretch','Crop','Pad'].map(c => (
+                    <button key={c} onClick={() => setCropMethod(c)}
+                      className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                        cropMethod === c
+                          ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                          : 'bg-white/[0.03] border border-white/5 text-white/30 hover:text-white/50'
+                      }`}>{c}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="h-px bg-white/5" />
 

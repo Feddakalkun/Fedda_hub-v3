@@ -33,7 +33,7 @@ export const ZImageTxt2Img = () => {
   } = useComfyExecution();
 
   useEffect(() => {
-    comfyService.getLoras().then(setAvailableLoras).catch(() => {});
+    comfyService.getLoras('zimage_turbo').then(setAvailableLoras).catch(() => {});
   }, []);
 
   // Image completion

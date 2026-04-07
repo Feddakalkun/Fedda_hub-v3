@@ -144,9 +144,12 @@ class ComfyUIService {
         return `${this.getComfyBaseUrl()}${COMFY_API.ENDPOINTS.VIEW}?${params}`;
     }
 
-    public async getLoras(): Promise<string[]> {
+    public async getLoras(prefix?: string): Promise<string[]> {
         try {
-            const resp = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.LORA_LIST}`);
+            const url = prefix
+                ? `${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.LORA_LIST}?prefix=${encodeURIComponent(prefix)}`
+                : `${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.LORA_LIST}`;
+            const resp = await fetch(url);
             const data = await resp.json();
             return data.loras || [];
         } catch (err) {

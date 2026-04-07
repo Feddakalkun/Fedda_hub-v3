@@ -396,9 +396,13 @@ async def get_download_status(filename: str):
 # ─────────────────────────────────────────────
 
 @app.get("/api/lora/list")
-async def lora_list():
-    """List installed LoRA stem-names for the Z-Image picker."""
-    return {"success": True, "loras": lora_service.list_lora_names()}
+async def lora_list(prefix: str = ""):
+    """List installed LoRA paths. Optional ?prefix= filters by subfolder (e.g. zimage_turbo)."""
+    loras = lora_service.list_lora_names()
+    if prefix:
+        norm = prefix.replace("\\", "/").lower().rstrip("/") + "/"
+        loras = [l for l in loras if l.replace("\\", "/").lower().startswith(norm)]
+    return {"success": True, "loras": loras}
 
 
 @app.get("/api/lora/installed")

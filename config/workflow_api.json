@@ -126,7 +126,8 @@
       "slow_motion_5": { "node_id": "152", "input_key": "save_output", "type": "boolean" },
       "aspect_ratio":  { "node_id": "157", "input_key": "aspect_ratio", "type": "string", "label": "Aspect Ratio" },
       "direction":     { "node_id": "157", "input_key": "direction",    "type": "string", "label": "Direction" },
-      "crop_method":   { "node_id": "157", "input_key": "crop_method",  "type": "string", "label": "Crop Method" }
+      "crop_method":   { "node_id": "157", "input_key": "crop_method",  "type": "string", "label": "Crop Method" },
+      "nsfw":          { "type": "nsfw_toggle", "label": "NSFW" }
     }
   },
   "wan22-img2vid": {
@@ -169,7 +170,8 @@
         "input_key": "value",
         "type": "number",
         "label": "Seed"
-      }
+      },
+      "nsfw": { "type": "nsfw_toggle", "label": "NSFW" }
     }
   },
   "ltx-flf": {

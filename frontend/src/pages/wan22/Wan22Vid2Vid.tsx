@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Video, Upload, RefreshCw, Film, Loader2,
-  Play, Pause, Zap, ZapOff, ChevronDown, ChevronUp, Check, ChevronLeft, ChevronRight,
+  Play, Pause, Zap, ZapOff, ChevronDown, ChevronUp, Check, ChevronLeft, ChevronRight, FlameKindling,
 } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
 import { BACKEND_API } from '../../config/api';
@@ -62,6 +62,7 @@ export const Wan22Vid2Vid = () => {
   const [prompt4, setPrompt4] = usePersistentState('wan22v2v_p4', '');
   const [seed, setSeed]       = usePersistentState('wan22v2v_seed', -1);
   const [slowMotion, setSlowMotion] = usePersistentState('wan22v2v_slowmo', true);
+  const [nsfw, setNsfw]             = usePersistentState('wan22v2v_nsfw', true);
   const [aspectRatio, setAspectRatio] = usePersistentState('wan22v2v_ar', '16:9');
   const [direction, setDirection]     = usePersistentState('wan22v2v_dir', 'Vertical');
   const [cropMethod, setCropMethod]   = usePersistentState('wan22v2v_crop', 'Stretch');
@@ -232,6 +233,7 @@ export const Wan22Vid2Vid = () => {
             slow_motion_3: slowMotion,
             slow_motion_4: slowMotion,
             slow_motion_5: slowMotion,
+            nsfw,
             aspect_ratio: aspectRatio,
             direction: direction,
             crop_method: cropMethod,
@@ -453,25 +455,45 @@ export const Wan22Vid2Vid = () => {
 
           <div className="h-px bg-white/5" />
 
-          {/* ── SLOW MOTION + SEED ── */}
-          <div className="flex items-center gap-4">
-            {/* Slow motion toggle */}
-            <button
-              onClick={() => setSlowMotion(!slowMotion)}
-              className={`flex-1 flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-                slowMotion
-                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-300'
-                  : 'bg-white/[0.02] border-white/5 text-slate-500'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {slowMotion ? <Zap className="w-3.5 h-3.5" /> : <ZapOff className="w-3.5 h-3.5" />}
-                <span className="text-[10px] font-black uppercase tracking-widest">Slow Motion</span>
-              </div>
-              <div className={`w-8 h-4 rounded-full transition-all relative ${slowMotion ? 'bg-violet-500' : 'bg-white/10'}`}>
-                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${slowMotion ? 'left-4' : 'left-0.5'}`} />
-              </div>
-            </button>
+          {/* ── SLOW MOTION + NSFW + SEED ── */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {/* Slow motion toggle */}
+              <button
+                onClick={() => setSlowMotion(!slowMotion)}
+                className={`flex-1 flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+                  slowMotion
+                    ? 'bg-violet-500/10 border-violet-500/30 text-violet-300'
+                    : 'bg-white/[0.02] border-white/5 text-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {slowMotion ? <Zap className="w-3 h-3" /> : <ZapOff className="w-3 h-3" />}
+                  <span className="text-[9px] font-black uppercase tracking-widest">Slo-Mo</span>
+                </div>
+                <div className={`w-7 h-3.5 rounded-full transition-all relative ${slowMotion ? 'bg-violet-500' : 'bg-white/10'}`}>
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all ${slowMotion ? 'left-3.5' : 'left-0.5'}`} />
+                </div>
+              </button>
+
+              {/* NSFW toggle */}
+              <button
+                onClick={() => setNsfw(!nsfw)}
+                className={`flex-1 flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+                  nsfw
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    : 'bg-white/[0.02] border-white/5 text-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FlameKindling className="w-3 h-3" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">NSFW</span>
+                </div>
+                <div className={`w-7 h-3.5 rounded-full transition-all relative ${nsfw ? 'bg-rose-500' : 'bg-white/10'}`}>
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all ${nsfw ? 'left-3.5' : 'left-0.5'}`} />
+                </div>
+              </button>
+            </div>
 
             {/* Seed */}
             <div className="flex gap-1.5">

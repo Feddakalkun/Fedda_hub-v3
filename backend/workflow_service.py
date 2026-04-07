@@ -109,6 +109,23 @@ class WorkflowService:
                 
                 print(f"  > Injecting '{param_key}' -> Node {node_id} (value: {param_value})")
 
+                if input_info.get("type") == "nsfw_toggle":
+                    # When NSFW is disabled, turn off all non-base LoRA slots in every
+                    # Power Lora Loader node (lora_1 is always the base WAN model LoRA).
+                    if not param_value:
+                        for wf_node in workflow.values():
+                            if not isinstance(wf_node, dict):
+                                continue
+                            if wf_node.get("class_type") != "Power Lora Loader (rgthree)":
+                                continue
+                            for slot_key, slot_val in wf_node.get("inputs", {}).items():
+                                if slot_key.startswith("lora_") and slot_key != "lora_1" and isinstance(slot_val, dict):
+                                    slot_val["on"] = False
+                        print(f"  [OK] NSFW disabled — all non-base LoRA slots turned off")
+                    else:
+                        print(f"  [OK] NSFW enabled — workflow LoRA slots unchanged")
+                    continue
+
                 if input_info.get("type") == "loras" and isinstance(param_value, list):
                     # Dynamic LoRA chain: replace the placeholder node with a chain of
                     # LoraLoader / LoraLoaderModelOnly nodes, then rewire downstream refs.

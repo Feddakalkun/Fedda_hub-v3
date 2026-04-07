@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Video, Upload, RefreshCw, Film, Loader2,
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, FlameKindling,
 } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
 import { BACKEND_API } from '../../config/api';
@@ -48,6 +48,7 @@ export const Wan22Img2Vid = () => {
   const [prompt3, setPrompt3] = usePersistentState('wan22i2v_p3', '');
   const [frameCount, setFrameCount] = usePersistentState('wan22i2v_frames', 81);
   const [seed, setSeed]             = usePersistentState('wan22i2v_seed', -1);
+  const [nsfw, setNsfw]             = usePersistentState('wan22i2v_nsfw', true);
 
   const [expanded, setExpanded] = useState<boolean[]>([true, true, true]);
   const toggleExpand = (i: number) => setExpanded(prev => prev.map((v, idx) => idx === i ? !v : v));
@@ -133,6 +134,7 @@ export const Wan22Img2Vid = () => {
             prompt2:     prompt2.trim() || prompt1.trim(),
             prompt3:     prompt3.trim() || prompt1.trim(),
             seed:        seed === -1 ? Math.floor(Math.random() * 10_000_000_000) : seed,
+            nsfw,
             client_id:   (comfyService as any).clientId,
           },
         }),
@@ -252,14 +254,35 @@ export const Wan22Img2Vid = () => {
 
           <div className="h-px bg-white/5" />
 
-          {/* ── SEED ── */}
-          <div className="flex gap-1.5">
-            <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}
-              className="flex-1 bg-white/[0.02] border border-white/5 rounded-xl py-3 px-3 text-xs font-mono focus:border-violet-500/20 outline-none text-white/40" />
-            <button onClick={() => setSeed(-1)}
-              className={`p-3 rounded-xl border transition-all ${seed === -1 ? 'bg-violet-500/10 border-violet-500/30 text-violet-400' : 'bg-white/[0.02] border-white/5 text-slate-500'}`}>
-              <RefreshCw className="w-3.5 h-3.5" />
+          {/* ── NSFW + SEED ── */}
+          <div className="space-y-2">
+            {/* NSFW toggle */}
+            <button
+              onClick={() => setNsfw(!nsfw)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+                nsfw
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  : 'bg-white/[0.02] border-white/5 text-slate-500'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FlameKindling className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-black uppercase tracking-widest">NSFW</span>
+              </div>
+              <div className={`w-8 h-4 rounded-full transition-all relative ${nsfw ? 'bg-rose-500' : 'bg-white/10'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${nsfw ? 'left-4' : 'left-0.5'}`} />
+              </div>
             </button>
+
+            {/* Seed */}
+            <div className="flex gap-1.5">
+              <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}
+                className="flex-1 bg-white/[0.02] border border-white/5 rounded-xl py-3 px-3 text-xs font-mono focus:border-violet-500/20 outline-none text-white/40" />
+              <button onClick={() => setSeed(-1)}
+                className={`p-3 rounded-xl border transition-all ${seed === -1 ? 'bg-violet-500/10 border-violet-500/30 text-violet-400' : 'bg-white/[0.02] border-white/5 text-slate-500'}`}>
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* ── GENERATE ── */}

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Mic, RefreshCw, Loader2, Play,
+  Mic, RefreshCw, Loader2, Play, Pause,
   ChevronLeft, ChevronRight, Film, Music, Image as ImageIcon,
 } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
@@ -10,15 +10,10 @@ import { usePersistentState } from '../../hooks/usePersistentState';
 import { comfyService } from '../../services/comfyService';
 import { PromptAssistant } from '../../components/ui/PromptAssistant';
 
-// ── Upload slot (image or audio) ──────────────────────────────────────────────
+// ── Upload slot ───────────────────────────────────────────────────────────────
 function UploadSlot({ label, icon: Icon, accept, preview, filename, uploading, onFile }: {
-  label: string;
-  icon: typeof ImageIcon;
-  accept: string;
-  preview?: string | null;
-  filename: string | null;
-  uploading: boolean;
-  onFile: (f: File) => void;
+  label: string; icon: typeof ImageIcon; accept: string;
+  preview?: string | null; filename: string | null; uploading: boolean; onFile: (f: File) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const isImage = accept.includes('image');
@@ -27,43 +22,38 @@ function UploadSlot({ label, icon: Icon, accept, preview, filename, uploading, o
       onClick={() => ref.current?.click()}
       onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
       onDragOver={e => e.preventDefault()}
-      className={`relative flex-1 rounded-2xl border-2 border-dashed cursor-pointer transition-all overflow-hidden group ${
-        filename ? 'border-violet-500/30 bg-violet-500/5' : 'border-white/8 hover:border-violet-500/30 bg-white/[0.02]'
+      className={`relative flex-1 rounded-xl border border-dashed cursor-pointer transition-all overflow-hidden group ${
+        filename ? 'border-violet-500/30 bg-black/40' : 'border-white/[0.08] hover:border-violet-500/25 bg-white/[0.02]'
       }`}
-      style={{ minHeight: 140 }}
+      style={{ height: 120 }}
     >
       {isImage && preview ? (
         <>
           <img src={preview} alt={label} className="w-full h-full object-cover absolute inset-0" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-            <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Replace</span>
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/70">Replace</span>
           </div>
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center h-full py-10 gap-3">
+        <div className="flex flex-col items-center justify-center h-full gap-2">
           {uploading
-            ? <Loader2 className="w-7 h-7 text-violet-400 animate-spin" />
+            ? <Loader2 className="w-5 h-5 text-violet-400/60 animate-spin" />
             : filename
-              ? <Icon className="w-7 h-7 text-violet-400/70" />
-              : <Icon className="w-7 h-7 text-white/15" />
+              ? <Icon className="w-5 h-5 text-violet-400/50" />
+              : <Icon className="w-5 h-5 text-white/10" />
           }
           {filename ? (
-            <div className="text-center px-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-violet-400/60">{label}</p>
-              <p className="text-[8px] font-mono text-white/30 truncate max-w-[140px] mt-1">{filename}</p>
-            </div>
+            <p className="text-[8px] font-mono text-white/25 truncate max-w-[110px] px-2">{filename}</p>
           ) : (
-            <div className="text-center">
-              <p className="text-[9px] font-black uppercase tracking-widest text-white/20">
-                {uploading ? 'Uploading…' : label}
-              </p>
-              <p className="text-[8px] text-white/10 mt-0.5">drop or click</p>
-            </div>
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/15">
+              {uploading ? 'Uploading…' : label}
+            </span>
           )}
         </div>
       )}
-      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm">
-        <span className="text-[8px] font-black uppercase tracking-widest text-white/40">{label}</span>
+      <div className="absolute bottom-0 left-0 right-0 px-2 py-1">
+        <span className="text-[7px] font-black uppercase tracking-widest text-white/25">{label}</span>
       </div>
       <input ref={ref} type="file" accept={accept} className="hidden"
         onChange={e => e.target.files?.[0] && onFile(e.target.files[0])} />
@@ -71,7 +61,41 @@ function UploadSlot({ label, icon: Icon, accept, preview, filename, uploading, o
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Video player ──────────────────────────────────────────────────────────────
+function VideoPlayer({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(true);
+
+  const toggle = () => {
+    if (!ref.current) return;
+    if (ref.current.paused) { ref.current.play(); setPlaying(true); }
+    else                     { ref.current.pause(); setPlaying(false); }
+  };
+
+  return (
+    <div className="relative w-full h-full group cursor-pointer" onClick={toggle}>
+      <video
+        ref={ref}
+        key={src}
+        src={src}
+        className="w-full h-full object-contain"
+        autoPlay
+        loop
+        playsInline
+      />
+      <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+        <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center">
+          {playing
+            ? <Pause className="w-4 h-4 text-white/80" />
+            : <Play  className="w-4 h-4 text-white/80 ml-0.5" />
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export const LtxImgAudioPage = () => {
   const [prompt,        setPrompt]        = usePersistentState('ltx_ia_prompt', 'person speaking naturally, realistic facial movement, lip sync');
   const [audioStart,    setAudioStart]    = usePersistentState('ltx_ia_start', 0);
@@ -83,9 +107,9 @@ export const LtxImgAudioPage = () => {
   const [imageFilename,  setImageFilename]  = useState<string | null>(null);
   const [imagePreview,   setImagePreview]   = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
-
   const [audioFilename,  setAudioFilename]  = useState<string | null>(null);
   const [audioUploading, setAudioUploading] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
 
@@ -100,7 +124,6 @@ export const LtxImgAudioPage = () => {
   const { toast } = useToast();
   const { state: execState, lastOutputVideos, outputReadyCount, registerNodeMap } = useComfyExecution();
 
-  // ── Upload helper ─────────────────────────────────────────────────────────
   const uploadFile = async (
     file: File,
     setFilename: (s: string) => void,
@@ -120,14 +143,12 @@ export const LtxImgAudioPage = () => {
     finally { setUploading(false); }
   };
 
-  // Audio preview player
-  const toggleAudioPlay = () => {
+  const toggleAudio = () => {
     if (!audioRef.current) return;
     if (audioPlaying) { audioRef.current.pause(); setAudioPlaying(false); }
     else              { audioRef.current.play();  setAudioPlaying(true);  }
   };
 
-  // ── Stream videos ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isGenerating && !pendingPromptId) return;
     if (!lastOutputVideos?.length) return;
@@ -142,7 +163,6 @@ export const LtxImgAudioPage = () => {
     setHistory(prev => [...urls, ...prev.filter(u => !urls.includes(u))].slice(0, 40));
   }, [outputReadyCount, lastOutputVideos, isGenerating, pendingPromptId, setHistory]);
 
-  // ── Completion + fallback ─────────────────────────────────────────────────
   useEffect(() => {
     if (!pendingPromptId) return;
     if (execState === 'error') { setIsGenerating(false); setPendingPromptId(null); return; }
@@ -165,7 +185,6 @@ export const LtxImgAudioPage = () => {
       .catch(() => toast('Lipsync video ready', 'success'));
   }, [execState, pendingPromptId, toast, setHistory]);
 
-  // ── Generate ──────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!imageFilename || !audioFilename || isGenerating) return;
     sessionRef.current   = [];
@@ -182,14 +201,11 @@ export const LtxImgAudioPage = () => {
         body: JSON.stringify({
           workflow_id: 'ltx-img-audio',
           params: {
-            image:          imageFilename,
-            audio:          audioFilename,
-            audio_start:    audioStart,
-            audio_duration: audioDuration,
-            prompt:         prompt.trim(),
-            width:          width,
-            seed:           seed === -1 ? Math.floor(Math.random() * 10_000_000_000) : seed,
-            client_id:      (comfyService as any).clientId,
+            image: imageFilename, audio: audioFilename,
+            audio_start: audioStart, audio_duration: audioDuration,
+            prompt: prompt.trim(), width,
+            seed: seed === -1 ? Math.floor(Math.random() * 10_000_000_000) : seed,
+            client_id: (comfyService as any).clientId,
           },
         }),
       });
@@ -208,23 +224,17 @@ export const LtxImgAudioPage = () => {
     <div className="flex h-full bg-[#080808] overflow-hidden">
 
       {/* ══ LEFT PANEL ══════════════════════════════════════════════════════ */}
-      <div className="w-[440px] shrink-0 flex flex-col border-r border-white/5 overflow-y-auto custom-scrollbar">
-        <div className="px-7 py-7 space-y-7">
+      <div className="w-[360px] shrink-0 flex flex-col border-r border-white/[0.04] overflow-y-auto custom-scrollbar">
+        <div className="px-5 py-5 space-y-5">
 
-          {/* Header */}
-          <div className="flex items-center gap-2">
-            <Mic className="w-4 h-4 text-violet-400" />
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">LTX 2.3 — Img + Audio Lipsync</h2>
-          </div>
-
-          {/* ── INPUTS ── */}
+          {/* Inputs */}
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Inputs</p>
-            <div className="flex gap-3" style={{ minHeight: 160 }}>
-              <UploadSlot label="Reference Image" icon={ImageIcon} accept="image/*"
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/20">Inputs</p>
+            <div className="flex gap-2">
+              <UploadSlot label="Image" icon={ImageIcon} accept="image/*"
                 preview={imagePreview} filename={imageFilename} uploading={imageUploading}
                 onFile={f => uploadFile(f, setImageFilename, setImageUploading, setImagePreview)} />
-              <UploadSlot label="Audio File" icon={Music} accept="audio/*"
+              <UploadSlot label="Audio" icon={Music} accept="audio/*"
                 filename={audioFilename} uploading={audioUploading}
                 onFile={f => {
                   uploadFile(f, setAudioFilename, setAudioUploading);
@@ -234,57 +244,50 @@ export const LtxImgAudioPage = () => {
 
             {/* Audio mini-player */}
             {audioFilename && (
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-black/30 border border-white/5">
-                <button onClick={toggleAudioPlay}
-                  className="w-7 h-7 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500/30 transition-all flex-shrink-0">
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-black/30 border border-white/[0.05]">
+                <button onClick={toggleAudio}
+                  className="w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/25 flex items-center justify-center text-violet-400 hover:bg-violet-500/30 transition-all flex-shrink-0">
                   {audioPlaying
-                    ? <span className="w-2.5 h-2.5 flex gap-0.5"><span className="flex-1 bg-violet-400 rounded-sm"/><span className="flex-1 bg-violet-400 rounded-sm"/></span>
-                    : <Play className="w-3 h-3 ml-0.5" />
+                    ? <span className="flex gap-0.5 w-2.5 h-2.5"><span className="flex-1 bg-violet-400 rounded-sm"/><span className="flex-1 bg-violet-400 rounded-sm"/></span>
+                    : <Play className="w-2.5 h-2.5 ml-0.5" />
                   }
                 </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[8px] font-mono text-white/30 truncate">{audioFilename}</p>
-                  <div className="h-1 bg-white/5 rounded-full mt-1">
-                    <div className="h-full bg-violet-500/40 rounded-full" style={{ width: '60%' }} />
-                  </div>
-                </div>
+                <p className="text-[8px] font-mono text-white/25 truncate flex-1">{audioFilename}</p>
                 <audio ref={audioRef} onEnded={() => setAudioPlaying(false)} className="hidden" />
               </div>
             )}
           </div>
 
-          <div className="h-px bg-white/5" />
-
-          {/* ── PROMPT ── */}
+          {/* Motion Prompt */}
           <PromptAssistant
             context="ltx-lipsync"
             value={prompt}
             onChange={setPrompt}
-            placeholder="Describe the speaking style, energy, and facial animation…"
+            placeholder="Describe the speaking style and facial animation…"
             minRows={3}
             accent="violet"
             label="Motion Prompt"
             enableCaption={false}
           />
 
-          <div className="h-px bg-white/5" />
-
-          {/* ── AUDIO TIMING ── */}
+          {/* Audio Timing */}
           <div className="space-y-3">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Audio Timing</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/20">Audio Timing</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
-                  Start — <span className="text-violet-400/60 font-mono">{audioStart}s</span>
-                </p>
+                <div className="flex justify-between">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/15">Start</p>
+                  <span className="text-[8px] font-mono text-violet-400/50">{audioStart}s</span>
+                </div>
                 <input type="range" min={0} max={60} step={0.5} value={audioStart}
                   onChange={e => setAudioStart(Number(e.target.value))}
                   className="w-full accent-violet-500" />
               </div>
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
-                  Duration — <span className="text-violet-400/60 font-mono">{audioDuration}s</span>
-                </p>
+                <div className="flex justify-between">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/15">Duration</p>
+                  <span className="text-[8px] font-mono text-violet-400/50">{audioDuration}s</span>
+                </div>
                 <input type="range" min={1} max={30} step={0.5} value={audioDuration}
                   onChange={e => setAudioDuration(Number(e.target.value))}
                   className="w-full accent-violet-500" />
@@ -292,119 +295,131 @@ export const LtxImgAudioPage = () => {
             </div>
           </div>
 
-          <div className="h-px bg-white/5" />
-
-          {/* ── VIDEO WIDTH ── */}
+          {/* Video Width */}
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-              Video Width — <span className="text-violet-400/60 font-mono">{width}px</span>
-            </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex justify-between">
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/20">Video Width</p>
+              <span className="text-[9px] font-mono text-violet-400/40">{width}px</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
               {[512, 720, 1024, 1280].map(w => (
                 <button key={w} onClick={() => setWidth(w)}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all ${
                     width === w
-                      ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
-                      : 'bg-white/[0.03] border border-white/5 text-white/30 hover:text-white/50 hover:bg-white/[0.06]'
-                  }`}>{w}px</button>
+                      ? 'bg-violet-500/20 border border-violet-500/35 text-violet-300'
+                      : 'bg-white/[0.03] border border-white/[0.06] text-white/25 hover:text-white/50'
+                  }`}>{w}
+                </button>
               ))}
             </div>
           </div>
 
-          <div className="h-px bg-white/5" />
-
-          {/* ── SEED ── */}
-          <div className="flex gap-1.5">
+          {/* Seed */}
+          <div className="flex gap-2">
             <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}
-              className="flex-1 bg-white/[0.02] border border-white/5 rounded-xl py-3 px-3 text-xs font-mono focus:border-violet-500/20 outline-none text-white/40" />
+              className="flex-1 bg-white/[0.02] border border-white/[0.06] rounded-xl py-2.5 px-3 text-[11px] font-mono text-white/35 focus:border-violet-500/20 outline-none" />
             <button onClick={() => setSeed(-1)}
-              className={`p-3 rounded-xl border transition-all ${seed === -1 ? 'bg-violet-500/10 border-violet-500/30 text-violet-400' : 'bg-white/[0.02] border-white/5 text-slate-500'}`}>
+              className={`p-2.5 rounded-xl border transition-all ${
+                seed === -1
+                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-400'
+                  : 'bg-white/[0.02] border-white/[0.06] text-white/20 hover:text-white/50'
+              }`}>
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* ── GENERATE ── */}
-          <div className="pb-6">
+          {/* Generate */}
+          <div className="pb-4">
             <button disabled={!canGenerate} onClick={handleGenerate}
-              className={`w-full py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] transition-all duration-500 flex items-center justify-center gap-3 ${
+              className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.35em] transition-all duration-300 flex items-center justify-center gap-3 ${
                 canGenerate
-                  ? 'bg-violet-600 text-white hover:bg-violet-500 hover:shadow-[0_0_50px_rgba(139,92,246,0.4)]'
-                  : 'bg-white/5 text-white/10 cursor-not-allowed'
+                  ? 'bg-violet-500 text-white hover:bg-violet-400 hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98]'
+                  : 'bg-white/[0.03] text-white/10 cursor-not-allowed border border-white/[0.04]'
               }`}>
-              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
-              <span>{isGenerating ? 'Generating…' : 'Generate Lipsync'}</span>
+              {isGenerating
+                ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Generating…</span></>
+                : <><Mic className="w-4 h-4" /><span>Generate Lipsync</span></>
+              }
             </button>
-            {!imageFilename && <p className="text-center text-[8px] text-white/15 mt-2 uppercase tracking-widest">Upload image + audio to start</p>}
+            {(!imageFilename || !audioFilename) && (
+              <p className="text-center text-[8px] text-white/10 mt-2 uppercase tracking-widest">
+                Upload image + audio to start
+              </p>
+            )}
           </div>
 
         </div>
       </div>
 
-      {/* ══ OUTPUT ══════════════════════════════════════════════════════════ */}
+      {/* ══ CENTER — VIDEO OUTPUT ════════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col overflow-hidden bg-[#050505]">
-        <div className="h-12 shrink-0 flex items-center justify-between px-6 border-b border-white/5">
+        <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-white/[0.04]">
           <div className="flex items-center gap-2">
-            <Play className="w-3.5 h-3.5 text-violet-400/60" />
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30">Output</span>
+            <Mic className="w-3 h-3 text-white/15" />
+            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/20">Output</span>
           </div>
           {isGenerating && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-              <span className="text-[9px] font-mono text-violet-400/60">Generating lipsync…</span>
+              <span className="text-[8px] font-mono text-violet-400/50">Syncing…</span>
             </div>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <div className="flex-1 flex items-center justify-center overflow-hidden">
           {currentVideo ? (
-            <div className="rounded-2xl overflow-hidden border border-violet-500/20 bg-black/60">
-              <video key={currentVideo} src={currentVideo} className="w-full" autoPlay loop playsInline controls />
-            </div>
+            <VideoPlayer src={currentVideo} />
           ) : isGenerating ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border border-violet-500/20 flex items-center justify-center">
-                  <Mic className="w-7 h-7 text-violet-400/60 animate-pulse" />
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-14 h-14">
+                <div className="absolute inset-0 rounded-full border border-violet-500/15 animate-ping" />
+                <div className="absolute inset-2 rounded-full border border-violet-500/25 animate-ping" style={{ animationDelay: '0.4s' }} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Mic className="w-5 h-5 text-violet-500/50 animate-pulse" />
                 </div>
-                <div className="absolute inset-0 rounded-full border border-violet-500/10 animate-ping" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Syncing lips to audio…</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/15">Syncing lips to audio…</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-64 gap-3 opacity-30">
-              <Mic className="w-10 h-10 text-white/10" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Upload image + audio and generate</p>
+            <div className="flex flex-col items-center gap-3 opacity-15">
+              <Mic className="w-10 h-10 text-white/20" />
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-white/25">
+                Upload image + audio and generate
+              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ══ COLLAPSIBLE GALLERY ═════════════════════════════════════════════ */}
-      <div className={`flex shrink-0 border-l border-white/5 bg-[#060606] transition-all duration-300 overflow-hidden ${galleryOpen ? 'w-[220px]' : 'w-10'}`}>
-        <div className="w-10 shrink-0 flex flex-col items-center pt-5 gap-3 border-r border-white/5">
-          <button onClick={() => setGalleryOpen(!galleryOpen)}
-            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all">
-            {galleryOpen ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+      {/* ══ RIGHT — GALLERY ══════════════════════════════════════════════════ */}
+      <div className={`flex shrink-0 border-l border-white/[0.04] bg-[#060606] transition-all duration-300 overflow-hidden ${galleryOpen ? 'w-[180px]' : 'w-9'}`}>
+        <div className="w-9 shrink-0 flex flex-col items-center pt-4 gap-3 border-r border-white/[0.04]">
+          <button onClick={() => setGalleryOpen(v => !v)}
+            className="w-6 h-6 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] flex items-center justify-center text-white/20 hover:text-white/60 transition-all">
+            {galleryOpen ? <ChevronRight className="w-2.5 h-2.5" /> : <ChevronLeft className="w-2.5 h-2.5" />}
           </button>
           {!galleryOpen && history.length > 0 && (
-            <span className="text-[9px] font-black text-white/20 tracking-widest"
+            <span className="text-[8px] font-black text-white/15 tracking-widest"
               style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
               {history.length}
             </span>
           )}
         </div>
+
         {galleryOpen && (
-          <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-2 space-y-2">
+          <div className="flex-1 overflow-y-auto custom-scrollbar py-3 px-2 space-y-2">
             {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 gap-2 opacity-30">
-                <Film className="w-5 h-5 text-white/20" />
-                <span className="text-[8px] text-white/20 font-black uppercase tracking-widest">Empty</span>
+              <div className="flex flex-col items-center justify-center h-28 gap-2 opacity-20">
+                <Film className="w-4 h-4 text-white/20" />
+                <span className="text-[7px] text-white/20 font-black uppercase tracking-widest">Empty</span>
               </div>
             ) : (
               history.map((url, i) => (
                 <button key={url + i} onClick={() => setCurrentVideo(url)}
                   className={`w-full aspect-video rounded-xl overflow-hidden border-2 transition-all hover:opacity-90 ${
-                    currentVideo === url ? 'border-violet-500/70 shadow-[0_0_16px_rgba(139,92,246,0.25)]' : 'border-white/5 hover:border-white/20'
+                    currentVideo === url
+                      ? 'border-violet-500/60 shadow-[0_0_12px_rgba(139,92,246,0.2)]'
+                      : 'border-white/[0.06] hover:border-white/20'
                   }`}>
                   <video src={url} className="w-full h-full object-cover" muted playsInline />
                 </button>

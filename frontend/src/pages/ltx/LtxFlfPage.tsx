@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Clapperboard, Upload, RefreshCw, Loader2, Play,
-  ChevronDown, ChevronUp, Zap, ChevronLeft, ChevronRight, Film,
+  Upload, RefreshCw, Loader2, Play, Pause,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Film,
 } from 'lucide-react';
 import { PromptAssistant } from '../../components/ui/PromptAssistant';
 import { useToast } from '../../components/ui/Toast';
@@ -20,31 +20,75 @@ function FrameSlot({ label, preview, uploading, onFile }: {
       onClick={() => ref.current?.click()}
       onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) onFile(f); }}
       onDragOver={e => e.preventDefault()}
-      className={`relative flex-1 rounded-2xl border-2 border-dashed cursor-pointer transition-all overflow-hidden group ${preview ? 'border-violet-500/30' : 'border-white/8 hover:border-violet-500/30'}`}
-      style={{ minHeight: 140 }}
+      className={`relative flex-1 rounded-xl border border-dashed cursor-pointer transition-all overflow-hidden group ${
+        preview ? 'border-violet-500/30 bg-black/40' : 'border-white/[0.08] hover:border-violet-500/25 bg-white/[0.02]'
+      }`}
+      style={{ height: 120 }}
     >
       {preview ? (
         <>
           <img src={preview} alt={label} className="w-full h-full object-cover absolute inset-0" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-            <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Replace</span>
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/70">Replace</span>
           </div>
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center h-full py-10 gap-2">
-          {uploading ? <Loader2 className="w-6 h-6 text-violet-400 animate-spin" /> : <Upload className="w-6 h-6 text-white/15" />}
-          <span className="text-[9px] font-black uppercase tracking-widest text-white/20">{uploading ? 'Uploading…' : label}</span>
+        <div className="flex flex-col items-center justify-center h-full gap-2">
+          {uploading
+            ? <Loader2 className="w-5 h-5 text-violet-400/60 animate-spin" />
+            : <Upload className="w-5 h-5 text-white/10" />
+          }
+          <span className="text-[8px] font-black uppercase tracking-widest text-white/15">
+            {uploading ? 'Uploading…' : label}
+          </span>
         </div>
       )}
-      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm">
-        <span className="text-[8px] font-black uppercase tracking-widest text-white/40">{label}</span>
+      <div className="absolute bottom-0 left-0 right-0 px-2 py-1">
+        <span className="text-[7px] font-black uppercase tracking-widest text-white/30">{label}</span>
       </div>
-      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && onFile(e.target.files[0])} />
+      <input ref={ref} type="file" accept="image/*" className="hidden"
+        onChange={e => e.target.files?.[0] && onFile(e.target.files[0])} />
     </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Video player ──────────────────────────────────────────────────────────────
+function VideoPlayer({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(true);
+
+  const toggle = () => {
+    if (!ref.current) return;
+    if (ref.current.paused) { ref.current.play(); setPlaying(true); }
+    else                     { ref.current.pause(); setPlaying(false); }
+  };
+
+  return (
+    <div className="relative w-full h-full group cursor-pointer" onClick={toggle}>
+      <video
+        ref={ref}
+        key={src}
+        src={src}
+        className="w-full h-full object-contain"
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
+      <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+        <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center">
+          {playing
+            ? <Pause className="w-4 h-4 text-white/80" />
+            : <Play  className="w-4 h-4 text-white/80 ml-0.5" />
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export const LtxFlfPage = () => {
   const [prompt,      setPrompt]      = usePersistentState('ltx_flf_prompt', '');
   const [aspectRatio, setAspectRatio] = usePersistentState('ltx_flf_ar', '16:9');
@@ -70,14 +114,15 @@ export const LtxFlfPage = () => {
 
   const sessionRef   = useRef<string[]>([]);
   const prevCountRef = useRef(0);
-  const completingPromptRef = useRef<string | null>(null);
 
   const { toast } = useToast();
   const { state: execState, lastOutputVideos, outputReadyCount, registerNodeMap } = useComfyExecution();
 
-  // ── Upload ────────────────────────────────────────────────────────────────
-  const uploadFrame = async (file: File,
-    setFn: (s: string) => void, setPrev: (s: string) => void, setUpl: (b: boolean) => void
+  const uploadFrame = async (
+    file: File,
+    setFn: (s: string) => void,
+    setPrev: (s: string) => void,
+    setUpl: (b: boolean) => void,
   ) => {
     setUpl(true);
     try {
@@ -92,7 +137,6 @@ export const LtxFlfPage = () => {
     finally { setUpl(false); }
   };
 
-  // ── Stream videos via WS ──────────────────────────────────────────────────
   useEffect(() => {
     if (!isGenerating && !pendingPromptId) return;
     if (!lastOutputVideos?.length) return;
@@ -107,17 +151,13 @@ export const LtxFlfPage = () => {
     setHistory(prev => [...urls, ...prev.filter(u => !urls.includes(u))].slice(0, 40));
   }, [outputReadyCount, lastOutputVideos, isGenerating, pendingPromptId, setHistory]);
 
-  // ── Completion + history fallback ─────────────────────────────────────────
   useEffect(() => {
     if (!pendingPromptId) return;
     if (execState === 'error') { setIsGenerating(false); setPendingPromptId(null); return; }
     if (execState !== 'done') return;
-
     const pid = pendingPromptId;
-    completingPromptRef.current = pid;
     setIsGenerating(false);
     setPendingPromptId(null);
-
     fetch(`${BACKEND_API.BASE_URL}/api/generate/status/${pid}`)
       .then(r => r.json())
       .then(d => {
@@ -133,10 +173,9 @@ export const LtxFlfPage = () => {
       .catch(() => toast('Video ready', 'success'));
   }, [execState, pendingPromptId, toast, setHistory]);
 
-  // ── Generate ──────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!firstFilename || !lastFilename || !prompt.trim() || isGenerating) return;
-    sessionRef.current  = [];
+    sessionRef.current   = [];
     prevCountRef.current = lastOutputVideos?.length ?? 0;
     setCurrentVideo(null);
     setIsGenerating(true);
@@ -170,83 +209,79 @@ export const LtxFlfPage = () => {
 
   const canGenerate = !!firstFilename && !!lastFilename && !!prompt.trim() && !isGenerating;
 
+  const RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', '3:2', '2:3'];
+
   return (
     <div className="flex h-full bg-[#080808] overflow-hidden">
 
       {/* ══ LEFT PANEL ══════════════════════════════════════════════════════ */}
-      <div className="w-[440px] shrink-0 flex flex-col border-r border-white/5 overflow-y-auto custom-scrollbar">
-        <div className="px-7 py-7 space-y-7">
+      <div className="w-[360px] shrink-0 flex flex-col border-r border-white/[0.04] overflow-y-auto custom-scrollbar">
+        <div className="px-5 py-5 space-y-5">
 
-          {/* Header */}
-          <div className="flex items-center gap-2">
-            <Clapperboard className="w-4 h-4 text-violet-400" />
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">LTX 2.3 — First / Last Frame</h2>
-          </div>
-
-          {/* Frame uploads */}
+          {/* Keyframes */}
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Keyframes</p>
-            <div className="flex gap-3" style={{ height: 160 }}>
-              <FrameSlot label="First Frame" preview={firstPreview} uploading={firstUploading}
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/20">Keyframes</p>
+            <div className="flex gap-2">
+              <FrameSlot label="First" preview={firstPreview} uploading={firstUploading}
                 onFile={f => uploadFrame(f, setFirstFilename, setFirstPreview, setFirstUploading)} />
-              <FrameSlot label="Last Frame" preview={lastPreview} uploading={lastUploading}
+              <FrameSlot label="Last" preview={lastPreview} uploading={lastUploading}
                 onFile={f => uploadFrame(f, setLastFilename, setLastPreview, setLastUploading)} />
             </div>
             {firstFilename && lastFilename && (
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60" />
-                <span className="text-[8px] font-mono text-white/20">Both frames ready</span>
-              </div>
+              <p className="text-[8px] text-violet-400/40 font-mono">Both frames ready</p>
             )}
           </div>
 
-          <div className="h-px bg-white/5" />
-
-          {/* Prompt */}
+          {/* Motion Prompt */}
           <PromptAssistant
             context="ltx-flf"
             value={prompt}
             onChange={setPrompt}
-            placeholder="Describe the motion and camera movement between the two frames…"
+            placeholder="Describe the motion between the two frames…"
             minRows={4}
             accent="violet"
             label="Motion Prompt"
             enableCaption={false}
           />
 
-          <div className="h-px bg-white/5" />
-
-          {/* Output format */}
+          {/* Format */}
           <div className="space-y-3">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Output Format</p>
-            <div className="flex flex-wrap gap-1.5">
-              {['1:1','4:3','3:4','16:9','9:16','21:9','3:2','2:3'].map(ar => (
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/20">Format</p>
+
+            {/* Aspect ratio */}
+            <div className="flex flex-wrap gap-1">
+              {RATIOS.map(ar => (
                 <button key={ar} onClick={() => setAspectRatio(ar)}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all ${
                     aspectRatio === ar
-                      ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
-                      : 'bg-white/[0.03] border border-white/5 text-white/30 hover:text-white/50 hover:bg-white/[0.06]'
-                  }`}>{ar}</button>
+                      ? 'bg-violet-500/20 border border-violet-500/35 text-violet-300'
+                      : 'bg-white/[0.03] border border-white/[0.06] text-white/25 hover:text-white/50'
+                  }`}>{ar}
+                </button>
               ))}
             </div>
+
+            {/* Direction + Length */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Direction</p>
-                <div className="flex gap-1.5">
-                  {['Horizontal','Vertical'].map(d => (
+                <p className="text-[8px] font-black uppercase tracking-widest text-white/15">Direction</p>
+                <div className="flex gap-1">
+                  {['Horizontal', 'Vertical'].map(d => (
                     <button key={d} onClick={() => setDirection(d)}
-                      className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                      className={`flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all ${
                         direction === d
-                          ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
-                          : 'bg-white/[0.03] border border-white/5 text-white/30 hover:text-white/50'
-                      }`}>{d === 'Horizontal' ? 'H' : 'V'}</button>
+                          ? 'bg-violet-500/20 border border-violet-500/35 text-violet-300'
+                          : 'bg-white/[0.03] border border-white/[0.06] text-white/25 hover:text-white/50'
+                      }`}>{d === 'Horizontal' ? 'H' : 'V'}
+                    </button>
                   ))}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
-                  Length — <span className="text-violet-400/60 font-mono">{lengthSec}s</span>
-                </p>
+                <div className="flex justify-between">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/15">Length</p>
+                  <span className="text-[8px] font-mono text-violet-400/50">{lengthSec}s</span>
+                </div>
                 <input type="range" min={2} max={15} step={1} value={lengthSec}
                   onChange={e => setLengthSec(Number(e.target.value))}
                   className="w-full accent-violet-500" />
@@ -254,33 +289,38 @@ export const LtxFlfPage = () => {
             </div>
           </div>
 
-          <div className="h-px bg-white/5" />
-
-          {/* Seed + guide strengths */}
-          <div className="space-y-3">
-            <div className="flex gap-1.5">
+          {/* Seed + Advanced */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
               <input type="number" value={seed} onChange={e => setSeed(parseInt(e.target.value))}
-                className="flex-1 bg-white/[0.02] border border-white/5 rounded-xl py-3 px-3 text-xs font-mono focus:border-violet-500/20 outline-none text-white/40" />
+                className="flex-1 bg-white/[0.02] border border-white/[0.06] rounded-xl py-2.5 px-3 text-[11px] font-mono text-white/35 focus:border-violet-500/20 outline-none" />
               <button onClick={() => setSeed(-1)}
-                className={`p-3 rounded-xl border transition-all ${seed === -1 ? 'bg-violet-500/10 border-violet-500/30 text-violet-400' : 'bg-white/[0.02] border-white/5 text-slate-500'}`}>
+                className={`p-2.5 rounded-xl border transition-all ${
+                  seed === -1
+                    ? 'bg-violet-500/10 border-violet-500/30 text-violet-400'
+                    : 'bg-white/[0.02] border-white/[0.06] text-white/20 hover:text-white/50'
+                }`}>
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
+
             <button onClick={() => setShowAdvanced(v => !v)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] border border-white/5 text-slate-500 hover:text-slate-300 transition-colors">
-              <span className="text-[9px] font-black uppercase tracking-widest">Guide Strengths</span>
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04] text-white/20 hover:text-white/40 transition-colors">
+              <span className="text-[8px] font-black uppercase tracking-widest">Guide Strengths</span>
               {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
+
             {showAdvanced && (
               <div className="grid grid-cols-2 gap-3 px-1">
                 {[
                   { label: 'First Frame', value: guideFirst, set: setGuideFirst },
                   { label: 'Last Frame',  value: guideLast,  set: setGuideLast  },
                 ].map(({ label, value, set }) => (
-                  <div key={label} className="space-y-1.5">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
-                      {label} — <span className="text-violet-400/60 font-mono">{value.toFixed(2)}</span>
-                    </p>
+                  <div key={label} className="space-y-1">
+                    <div className="flex justify-between">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/15">{label}</p>
+                      <span className="text-[8px] font-mono text-violet-400/50">{value.toFixed(2)}</span>
+                    </div>
                     <input type="range" min={0} max={1} step={0.05} value={value}
                       onChange={e => set(Number(e.target.value))} className="w-full accent-violet-500" />
                   </div>
@@ -290,89 +330,97 @@ export const LtxFlfPage = () => {
           </div>
 
           {/* Generate */}
-          <div className="pb-6">
+          <div className="pb-4">
             <button disabled={!canGenerate} onClick={handleGenerate}
-              className={`w-full py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] transition-all duration-500 flex items-center justify-center gap-3 ${
+              className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.35em] transition-all duration-300 flex items-center justify-center gap-3 ${
                 canGenerate
-                  ? 'bg-violet-600 text-white hover:bg-violet-500 hover:shadow-[0_0_50px_rgba(139,92,246,0.4)]'
-                  : 'bg-white/5 text-white/10 cursor-not-allowed'
+                  ? 'bg-violet-500 text-white hover:bg-violet-400 hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98]'
+                  : 'bg-white/[0.03] text-white/10 cursor-not-allowed border border-white/[0.04]'
               }`}>
-              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              <span>{isGenerating ? 'Generating…' : 'Generate'}</span>
+              {isGenerating
+                ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Generating…</span></>
+                : <><Play className="w-4 h-4" /><span>Generate</span></>
+              }
             </button>
+            {(!firstFilename || !lastFilename) && (
+              <p className="text-center text-[8px] text-white/10 mt-2 uppercase tracking-widest">
+                Upload both frames to start
+              </p>
+            )}
           </div>
+
         </div>
       </div>
 
-      {/* ══ MAIN OUTPUT ═════════════════════════════════════════════════════ */}
+      {/* ══ CENTER — VIDEO OUTPUT ════════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col overflow-hidden bg-[#050505]">
-        {/* Header */}
-        <div className="h-12 shrink-0 flex items-center justify-between px-6 border-b border-white/5">
+        <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-white/[0.04]">
           <div className="flex items-center gap-2">
-            <Play className="w-3.5 h-3.5 text-violet-400/60" />
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30">Output</span>
+            <Play className="w-3 h-3 text-white/15" />
+            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/20">Output</span>
           </div>
           {isGenerating && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-              <span className="text-[9px] font-mono text-violet-400/60">Generating…</span>
+              <span className="text-[8px] font-mono text-violet-400/50">Generating…</span>
             </div>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <div className="flex-1 flex items-center justify-center overflow-hidden">
           {currentVideo ? (
-            <div className="rounded-2xl overflow-hidden border border-violet-500/20 bg-black/60">
-              <video key={currentVideo} src={currentVideo} className="w-full" autoPlay loop muted playsInline controls />
-            </div>
+            <VideoPlayer src={currentVideo} />
           ) : isGenerating ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border border-violet-500/20 flex items-center justify-center">
-                  <Loader2 className="w-7 h-7 text-violet-400/60 animate-spin" />
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-14 h-14">
+                <div className="absolute inset-0 rounded-full border border-violet-500/15 animate-ping" />
+                <div className="absolute inset-2 rounded-full border border-violet-500/25 animate-ping" style={{ animationDelay: '0.4s' }} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 text-violet-500/50 animate-spin" />
                 </div>
-                <div className="absolute inset-0 rounded-full border border-violet-500/10 animate-ping" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">LTX is working…</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/15">LTX is working…</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-64 gap-3 opacity-30">
-              <Clapperboard className="w-10 h-10 text-white/10" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Upload frames and generate</p>
+            <div className="flex flex-col items-center gap-3 opacity-15">
+              <Film className="w-10 h-10 text-white/20" />
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-white/25">
+                Upload frames and generate
+              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ══ COLLAPSIBLE GALLERY ═════════════════════════════════════════════ */}
-      <div className={`flex shrink-0 border-l border-white/5 bg-[#060606] transition-all duration-300 overflow-hidden ${galleryOpen ? 'w-[220px]' : 'w-10'}`}>
-        {/* Toggle strip */}
-        <div className="w-10 shrink-0 flex flex-col items-center pt-5 gap-3 border-r border-white/5">
-          <button onClick={() => setGalleryOpen(!galleryOpen)}
-            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all">
-            {galleryOpen ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+      {/* ══ RIGHT — GALLERY ══════════════════════════════════════════════════ */}
+      <div className={`flex shrink-0 border-l border-white/[0.04] bg-[#060606] transition-all duration-300 overflow-hidden ${galleryOpen ? 'w-[180px]' : 'w-9'}`}>
+        <div className="w-9 shrink-0 flex flex-col items-center pt-4 gap-3 border-r border-white/[0.04]">
+          <button onClick={() => setGalleryOpen(v => !v)}
+            className="w-6 h-6 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] flex items-center justify-center text-white/20 hover:text-white/60 transition-all">
+            {galleryOpen ? <ChevronRight className="w-2.5 h-2.5" /> : <ChevronLeft className="w-2.5 h-2.5" />}
           </button>
           {!galleryOpen && history.length > 0 && (
-            <span className="text-[9px] font-black text-white/20 tracking-widest"
+            <span className="text-[8px] font-black text-white/15 tracking-widest"
               style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
               {history.length}
             </span>
           )}
         </div>
 
-        {/* Video list */}
         {galleryOpen && (
-          <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-2 space-y-2">
+          <div className="flex-1 overflow-y-auto custom-scrollbar py-3 px-2 space-y-2">
             {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 gap-2 opacity-30">
-                <Film className="w-5 h-5 text-white/20" />
-                <span className="text-[8px] text-white/20 font-black uppercase tracking-widest">Empty</span>
+              <div className="flex flex-col items-center justify-center h-28 gap-2 opacity-20">
+                <Film className="w-4 h-4 text-white/20" />
+                <span className="text-[7px] text-white/20 font-black uppercase tracking-widest">Empty</span>
               </div>
             ) : (
               history.map((url, i) => (
                 <button key={url + i} onClick={() => setCurrentVideo(url)}
                   className={`w-full aspect-video rounded-xl overflow-hidden border-2 transition-all hover:opacity-90 ${
-                    currentVideo === url ? 'border-violet-500/70 shadow-[0_0_16px_rgba(139,92,246,0.25)]' : 'border-white/5 hover:border-white/20'
+                    currentVideo === url
+                      ? 'border-violet-500/60 shadow-[0_0_12px_rgba(139,92,246,0.2)]'
+                      : 'border-white/[0.06] hover:border-white/20'
                   }`}>
                   <video src={url} className="w-full h-full object-cover" muted playsInline />
                 </button>
